@@ -1,0 +1,182 @@
+object frmMain: TfrmMain
+  Left = 0
+  Top = 0
+  Caption = 'Pro Tree Trainer'
+  ClientHeight = 780
+  ClientWidth = 390
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnKeyDown = FormKeyDown
+  DesignerMasterStyle = 0
+  object layTop: TLayout
+    Align = Top
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 8.000000000000000000
+    Size.Width = 374.000000000000000000
+    Size.Height = 120.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    object lblReaction: TLabel
+      Align = Top
+      Size.Width = 374.000000000000000000
+      Size.Height = 64.000000000000000000
+      Size.PlatformDefault = False
+      Text = '-.---'
+    end
+    object lblVerdict: TLabel
+      Align = Top
+      Position.Y = 64.000000000000000000
+      Size.Width = 374.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Press START to stage'
+    end
+    object lblStats: TLabel
+      Align = Client
+      Size.Width = 374.000000000000000000
+      Size.Height = 28.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Runs 0'
+    end
+  end
+  object layMiddle: TLayout
+    Align = Client
+    Margins.Left = 8.000000000000000000
+    Margins.Top = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Margins.Bottom = 8.000000000000000000
+    Size.Width = 374.000000000000000000
+    Size.Height = 400.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object rectHistory: TRectangle
+      Align = Right
+      Margins.Left = 8.000000000000000000
+      Position.X = 254.000000000000000000
+      Size.Width = 120.000000000000000000
+      Size.Height = 400.000000000000000000
+      Size.PlatformDefault = False
+      XRadius = 10.000000000000000000
+      YRadius = 10.000000000000000000
+      object lblHistoryTitle: TLabel
+        Align = Top
+        Margins.Top = 6.000000000000000000
+        Size.Width = 120.000000000000000000
+        Size.Height = 24.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'History'
+      end
+      object lblHistory: TLabel
+        Align = Client
+        Margins.Left = 10.000000000000000000
+        Margins.Right = 6.000000000000000000
+        Margins.Bottom = 6.000000000000000000
+        Size.Width = 104.000000000000000000
+        Size.Height = 364.000000000000000000
+        Size.PlatformDefault = False
+      end
+    end
+    object pbTree: TPaintBox
+      Align = Client
+      Size.Width = 246.000000000000000000
+      Size.Height = 400.000000000000000000
+      Size.PlatformDefault = False
+      OnPaint = pbTreePaint
+    end
+  end
+  object rectLaunch: TRectangle
+    Align = Bottom
+    Margins.Left = 8.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Margins.Bottom = 8.000000000000000000
+    Position.X = 8.000000000000000000
+    Position.Y = 560.000000000000000000
+    Size.Width = 374.000000000000000000
+    Size.Height = 140.000000000000000000
+    Size.PlatformDefault = False
+    XRadius = 18.000000000000000000
+    YRadius = 18.000000000000000000
+    OnMouseDown = rectLaunchMouseDown
+    object lblLaunch: TLabel
+      Align = Client
+      Size.Width = 374.000000000000000000
+      Size.Height = 140.000000000000000000
+      Size.PlatformDefault = False
+      Text = 'Press START'
+    end
+  end
+  object layButtons: TLayout
+    Align = Bottom
+    Margins.Left = 4.000000000000000000
+    Margins.Right = 4.000000000000000000
+    Margins.Bottom = 8.000000000000000000
+    Position.X = 4.000000000000000000
+    Position.Y = 716.000000000000000000
+    Size.Width = 382.000000000000000000
+    Size.Height = 56.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 3
+    OnResize = layButtonsResize
+    object btnStart: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 4.000000000000000000
+      Size.Width = 87.500000000000000000
+      Size.Height = 56.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'Start'
+      OnClick = btnStartClick
+    end
+    object btnStop: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 99.500000000000000000
+      Size.Width = 87.500000000000000000
+      Size.Height = 56.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = 'Stop'
+      OnClick = btnStopClick
+    end
+    object btnReset: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 195.000000000000000000
+      Size.Width = 87.500000000000000000
+      Size.Height = 56.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+      Text = 'Reset'
+      OnClick = btnResetClick
+    end
+    object btnClear: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 290.500000000000000000
+      Size.Width = 87.500000000000000000
+      Size.Height = 56.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 3
+      Text = 'Clear'
+      OnClick = btnClearClick
+    end
+  end
+  object tmrTree: TTimer
+    Enabled = False
+    Interval = 1
+    OnTimer = tmrTreeTimer
+    Left = 24
+    Top = 200
+  end
+end
