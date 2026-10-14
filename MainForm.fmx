@@ -10,6 +10,7 @@ object frmMain: TfrmMain
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
+  OnKeyUp = FormKeyUp
   DesignerMasterStyle = 0
   object layTop: TLayout
     Align = Top
@@ -43,6 +44,55 @@ object frmMain: TfrmMain
       Size.Height = 28.000000000000000000
       Size.PlatformDefault = False
       Text = 'Runs 0'
+    end
+  end
+  object layOptions: TLayout
+    Align = Top
+    Margins.Left = 4.000000000000000000
+    Margins.Top = 4.000000000000000000
+    Margins.Right = 4.000000000000000000
+    Position.X = 4.000000000000000000
+    Position.Y = 132.000000000000000000
+    Size.Width = 382.000000000000000000
+    Size.Height = 40.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 4
+    OnResize = layOptionsResize
+    object btnTreeMode: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 4.000000000000000000
+      Size.Width = 119.299999999999997158
+      Size.Height = 40.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'Tree: Pro'
+      OnClick = btnTreeModeClick
+    end
+    object btnLane: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 131.300000000000011369
+      Size.Width = 119.299999999999997158
+      Size.Height = 40.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      Text = 'Lane: Left'
+      OnClick = btnLaneClick
+    end
+    object btnStaging: TButton
+      Align = Left
+      Margins.Left = 4.000000000000000000
+      Margins.Right = 4.000000000000000000
+      Position.X = 258.600000000000022737
+      Size.Width = 119.299999999999997158
+      Size.Height = 40.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+      Text = 'Stage: Auto'
+      OnClick = btnStagingClick
     end
   end
   object layMiddle: TLayout
@@ -104,6 +154,8 @@ object frmMain: TfrmMain
     XRadius = 18.000000000000000000
     YRadius = 18.000000000000000000
     OnMouseDown = rectLaunchMouseDown
+    OnMouseUp = rectLaunchMouseUp
+    OnMouseLeave = rectLaunchMouseLeave
     object lblLaunch: TLabel
       Align = Client
       Size.Width = 374.000000000000000000
@@ -179,7 +231,7 @@ object frmMain: TfrmMain
   end
   object tmrTree: TTimer
     Enabled = False
-    Interval = 1
+    Interval = 10
     OnTimer = tmrTreeTimer
     Left = 24
     Top = 200
