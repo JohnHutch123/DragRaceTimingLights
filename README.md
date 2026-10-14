@@ -1,13 +1,26 @@
 # Drag Race Timing Lights (Pro Tree Trainer)
 
 A Delphi 12 FireMonkey app for iPhone and Android that simulates a drag racing
-**Pro tree** so you can practise your reaction time.
+starting tree (Pro or Sportsman) so you can practise your reaction time.
 
 ## How it works
 
-1. Press **Start**. The pre-stage bulbs light, then the stage bulbs.
-2. After a random wait (0.8 to 3.0 s) all three ambers light together.
-3. Exactly 0.400 s later the ambers go out and the green lights.
+1. Pick your options with the three buttons under the result:
+   - **Tree: Pro / Sportsman.** Pro lights all three ambers together with
+     the green 0.400 s later. Sportsman (full tree) lights the ambers one
+     after another 0.500 s apart, with the green 0.500 s after the last one.
+   - **Lane: Left / Right.** Your lane is marked **YOU** in blue on the tree,
+     and your car is the blue one.
+   - **Stage: Auto / Manual.** Auto rolls your car in for you. In Manual you
+     hold the launch pad to creep forward and let go once you're staged.
+2. Press **Start**. Both cars roll up to the beams in the staging view under
+   the tree. The pre-stage bulb lights when your front tyre breaks the
+   pre-stage beam, and the stage bulb 7 in later at the stage beam. Roll on
+   past the pre-stage window and you are deep staged. Roll right through the
+   stage beam (the red zone) and you get **TOO FAR FORWARD**, which ends the
+   run.
+3. Once both lanes are staged, the tree starts after a random wait of 0.8 to
+   3.0 s.
 4. Tap the big **launch pad** at the bottom of the screen.
 
 Your reaction time is measured from when the green is due:
@@ -19,12 +32,14 @@ Your reaction time is measured from when the green is due:
 | 0.010-0.099 | Great / good light            |
 | 0.100 and up| Late                          |
 
-As on a real Pro tree, a good light means leaving on the ambers, not waiting
-to see the green.
+When you red-light, your red bulb lights and the tree carries on for the
+other lane. History marks Sportsman runs with **S** and red lights with **R**.
+Your options are saved between sessions.
 
 Buttons: **Start** runs the tree, **Stop** aborts a run, **Reset** clears the
 lights for the next run, **Clear** wipes the history and stats.
-On Windows (handy for testing) **Enter** starts a run and **Space** launches.
+On Windows (handy for testing) **Enter** starts a run and **Space** is the
+launch pad (hold it to creep in Manual staging).
 
 ## Building
 
