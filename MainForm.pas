@@ -509,7 +509,7 @@ var
     end;
     Canvas.Stroke.Kind := TBrushKind.Solid;
     Canvas.Stroke.Color := clrRim;
-    Canvas.StrokeThickness := Max(2, Radius * 0.12);
+   // Canvas.StrokeThickness := Max(2, Radius * 0.12);
     Canvas.DrawEllipse(RectF(CX - Radius, CY - Radius,
       CX + Radius, CY + Radius), 1);
   end;

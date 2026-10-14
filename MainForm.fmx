@@ -52,7 +52,7 @@ object frmMain: TfrmMain
     Margins.Right = 8.000000000000000000
     Margins.Bottom = 8.000000000000000000
     Size.Width = 374.000000000000000000
-    Size.Height = 400.000000000000000000
+    Size.Height = 424.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
     object rectHistory: TRectangle
@@ -60,13 +60,14 @@ object frmMain: TfrmMain
       Margins.Left = 8.000000000000000000
       Position.X = 254.000000000000000000
       Size.Width = 120.000000000000000000
-      Size.Height = 400.000000000000000000
+      Size.Height = 424.000000000000000000
       Size.PlatformDefault = False
       XRadius = 10.000000000000000000
       YRadius = 10.000000000000000000
       object lblHistoryTitle: TLabel
         Align = Top
         Margins.Top = 6.000000000000000000
+        Position.Y = 6.000000000000000000
         Size.Width = 120.000000000000000000
         Size.Height = 24.000000000000000000
         Size.PlatformDefault = False
@@ -78,14 +79,14 @@ object frmMain: TfrmMain
         Margins.Right = 6.000000000000000000
         Margins.Bottom = 6.000000000000000000
         Size.Width = 104.000000000000000000
-        Size.Height = 364.000000000000000000
+        Size.Height = 388.000000000000000000
         Size.PlatformDefault = False
       end
     end
     object pbTree: TPaintBox
       Align = Client
       Size.Width = 246.000000000000000000
-      Size.Height = 400.000000000000000000
+      Size.Height = 424.000000000000000000
       Size.PlatformDefault = False
       OnPaint = pbTreePaint
     end
@@ -96,7 +97,7 @@ object frmMain: TfrmMain
     Margins.Right = 8.000000000000000000
     Margins.Bottom = 8.000000000000000000
     Position.X = 8.000000000000000000
-    Position.Y = 560.000000000000000000
+    Position.Y = 568.000000000000000000
     Size.Width = 374.000000000000000000
     Size.Height = 140.000000000000000000
     Size.PlatformDefault = False
@@ -133,6 +134,7 @@ object frmMain: TfrmMain
       Size.PlatformDefault = False
       TabOrder = 0
       Text = 'Start'
+      TextSettings.Trimming = None
       OnClick = btnStartClick
     end
     object btnStop: TButton
@@ -145,6 +147,7 @@ object frmMain: TfrmMain
       Size.PlatformDefault = False
       TabOrder = 1
       Text = 'Stop'
+      TextSettings.Trimming = None
       OnClick = btnStopClick
     end
     object btnReset: TButton
@@ -157,6 +160,7 @@ object frmMain: TfrmMain
       Size.PlatformDefault = False
       TabOrder = 2
       Text = 'Reset'
+      TextSettings.Trimming = None
       OnClick = btnResetClick
     end
     object btnClear: TButton
@@ -169,6 +173,7 @@ object frmMain: TfrmMain
       Size.PlatformDefault = False
       TabOrder = 3
       Text = 'Clear'
+      TextSettings.Trimming = None
       OnClick = btnClearClick
     end
   end
