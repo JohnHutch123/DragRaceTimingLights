@@ -11,6 +11,7 @@ object frmMain: TfrmMain
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
   OnKeyUp = FormKeyUp
+  OnTouch = FormTouch
   DesignerMasterStyle = 0
   object layTop: TLayout
     Align = Top
@@ -48,54 +49,32 @@ object frmMain: TfrmMain
   end
   object layOptions: TLayout
     Align = Top
-    Margins.Left = 4.000000000000000000
+    Margins.Left = 8.000000000000000000
     Margins.Top = 4.000000000000000000
-    Margins.Right = 4.000000000000000000
-    Position.X = 4.000000000000000000
+    Margins.Right = 8.000000000000000000
+    Position.X = 8.000000000000000000
     Position.Y = 132.000000000000000000
-    Size.Width = 382.000000000000000000
+    Size.Width = 374.000000000000000000
     Size.Height = 40.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 4
-    OnResize = layOptionsResize
-    object btnTreeMode: TButton
+    object btnSettings: TButton
       Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 4.000000000000000000
-      Size.Width = 119.300003051757800000
+      Size.Width = 100.000000000000000000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
-      Text = 'Tree: Pro'
+      Text = 'Settings'
       TextSettings.Trimming = None
-      OnClick = btnTreeModeClick
+      OnClick = btnSettingsClick
     end
-    object btnLane: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 131.300003051757800000
-      Size.Width = 119.300003051757800000
+    object lblSummary: TLabel
+      Align = Client
+      Margins.Left = 10.000000000000000000
+      Size.Width = 264.000000000000000000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
-      TabOrder = 1
-      Text = 'Lane: Left'
-      TextSettings.Trimming = None
-      OnClick = btnLaneClick
-    end
-    object btnStaging: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 258.600006103515600000
-      Size.Width = 119.300003051757800000
-      Size.Height = 40.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 2
-      Text = 'Stage: Auto'
-      TextSettings.Trimming = None
-      OnClick = btnStagingClick
+      Text = 'Pro tree'
     end
   end
   object layMiddle: TLayout
@@ -144,27 +123,32 @@ object frmMain: TfrmMain
       OnPaint = pbTreePaint
     end
   end
-  object rectLaunch: TRectangle
+  object layPedals: TLayout
     Align = Bottom
     Margins.Left = 8.000000000000000000
     Margins.Right = 8.000000000000000000
     Margins.Bottom = 8.000000000000000000
     Position.X = 8.000000000000000000
-    Position.Y = 568.000000000000000000
+    Position.Y = 548.000000000000000000
     Size.Width = 374.000000000000000000
-    Size.Height = 140.000000000000000000
+    Size.Height = 160.000000000000000000
     Size.PlatformDefault = False
-    XRadius = 18.000000000000000000
-    YRadius = 18.000000000000000000
-    OnMouseDown = rectLaunchMouseDown
-    OnMouseUp = rectLaunchMouseUp
-    OnMouseLeave = rectLaunchMouseLeave
-    object lblLaunch: TLabel
-      Align = Client
+    TabOrder = 2
+    object lblHint: TLabel
+      Align = Top
       Size.Width = 374.000000000000000000
-      Size.Height = 140.000000000000000000
+      Size.Height = 26.000000000000000000
       Size.PlatformDefault = False
       Text = 'Press START'
+    end
+    object layPads: TLayout
+      Align = Client
+      Margins.Top = 4.000000000000000000
+      Size.Width = 374.000000000000000000
+      Size.Height = 130.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      OnResize = layPadsResize
     end
   end
   object layButtons: TLayout
