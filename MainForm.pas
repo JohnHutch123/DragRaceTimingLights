@@ -188,8 +188,18 @@ begin
 end;
 
 function SettingsFile: string;
+var
+  Dir: string;
 begin
-//  Result := TPath.Combine(TPath.GetDocumentsPath, 'DragTree.ini');
+  // Windows: %APPDATA%\DragTree. Phones: the app's private documents folder.
+{$IFDEF MSWINDOWS}
+  Dir := TPath.Combine(TPath.GetHomePath, 'DragTree');
+{$ELSE}
+  Dir := TPath.GetDocumentsPath;
+{$ENDIF}
+  Result := '';
+  if (Dir <> '') and ForceDirectories(Dir) then
+    Result := TPath.Combine(Dir, 'DragTree.ini');
 end;
 
 { TfrmMain }
@@ -214,12 +224,16 @@ end;
 procedure TfrmMain.LoadSettings;
 var
   Ini: TMemIniFile;
+  FileName: string;
 begin
   FTreeMode := tmPro;
   FStageMode := smAuto;
   FUserLane := 0;
+  FileName := SettingsFile;
+  if (FileName = '') or not TFile.Exists(FileName) then
+    Exit;
   try
-    Ini := TMemIniFile.Create(SettingsFile);
+    Ini := TMemIniFile.Create(FileName);
     try
       FTreeMode := TTreeMode(EnsureRange(Ini.ReadInteger('Options', 'Tree', 0),
         Ord(Low(TTreeMode)), Ord(High(TTreeMode))));
@@ -237,9 +251,13 @@ end;
 procedure TfrmMain.SaveSettings;
 var
   Ini: TMemIniFile;
+  FileName: string;
 begin
+  FileName := SettingsFile;
+  if FileName = '' then
+    Exit;
   try
-    Ini := TMemIniFile.Create(SettingsFile);
+    Ini := TMemIniFile.Create(FileName);
     try
       Ini.WriteInteger('Options', 'Tree', Ord(FTreeMode));
       Ini.WriteInteger('Options', 'Staging', Ord(FStageMode));
@@ -866,7 +884,7 @@ var
     end;
     Canvas.Stroke.Kind := TBrushKind.Solid;
     Canvas.Stroke.Color := clrRim;
-   // Canvas.StrokeThickness := Max(2, Radius * 0.12);
+    Canvas.Stroke.Thickness := Max(2.0, Radius * 0.12);
     Canvas.DrawEllipse(RectF(CX - Radius, CY - Radius,
       CX + Radius, CY + Radius), 1);
   end;
@@ -917,7 +935,7 @@ var
       Canvas.Stroke.Color := clrStage
     else
       Canvas.Stroke.Color := TAlphaColor($FF8A8A8A);
-   // Canvas.StrokeThickness := 2;
+    Canvas.Stroke.Thickness := 2;
     Canvas.DrawLine(PointF(CX - LaneW * 0.48, Y), PointF(CX + LaneW * 0.48, Y), 1);
     if ShowName then
       LabelText(RectF(0, Y - 8, CX - LaneW * 0.48, Y + 8), Name, clrSubtle, 10);
@@ -962,7 +980,7 @@ begin
     begin
       Canvas.Stroke.Kind := TBrushKind.Solid;
       Canvas.Stroke.Color := clrYou;
-    //  Canvas.StrokeThickness := 2;
+      Canvas.Stroke.Thickness := 2;
       Canvas.DrawRect(RectF(LaneX[Lane] - R * 1.6, LabelH + 2,
         LaneX[Lane] + R * 1.6, TreeH - 2), R * 0.6, R * 0.6, AllCorners, 1);
     end;
