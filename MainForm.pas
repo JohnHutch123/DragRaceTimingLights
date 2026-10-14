@@ -192,14 +192,15 @@ var
   Dir: string;
 begin
   // Windows: %APPDATA%\DragTree. Phones: the app's private documents folder.
+  // TPath is qualified because FMX.Objects also declares a TPath (a shape).
 {$IFDEF MSWINDOWS}
-  Dir := TPath.Combine(TPath.GetHomePath, 'DragTree');
+  Dir := System.IOUtils.TPath.Combine(System.IOUtils.TPath.GetHomePath, 'DragTree');
 {$ELSE}
-  Dir := TPath.GetDocumentsPath;
+  Dir := System.IOUtils.TPath.GetDocumentsPath;
 {$ENDIF}
   Result := '';
   if (Dir <> '') and ForceDirectories(Dir) then
-    Result := TPath.Combine(Dir, 'DragTree.ini');
+    Result := System.IOUtils.TPath.Combine(Dir, 'DragTree.ini');
 end;
 
 { TfrmMain }
@@ -230,7 +231,7 @@ begin
   FStageMode := smAuto;
   FUserLane := 0;
   FileName := SettingsFile;
-  if (FileName = '') or not TFile.Exists(FileName) then
+  if (FileName = '') or not System.IOUtils.TFile.Exists(FileName) then
     Exit;
   try
     Ini := TMemIniFile.Create(FileName);
