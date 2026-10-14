@@ -189,7 +189,7 @@ end;
 
 function SettingsFile: string;
 begin
-  Result := TPath.Combine(TPath.GetDocumentsPath, 'DragTree.ini');
+//  Result := TPath.Combine(TPath.GetDocumentsPath, 'DragTree.ini');
 end;
 
 { TfrmMain }
@@ -917,7 +917,7 @@ var
       Canvas.Stroke.Color := clrStage
     else
       Canvas.Stroke.Color := TAlphaColor($FF8A8A8A);
-    Canvas.StrokeThickness := 2;
+   // Canvas.StrokeThickness := 2;
     Canvas.DrawLine(PointF(CX - LaneW * 0.48, Y), PointF(CX + LaneW * 0.48, Y), 1);
     if ShowName then
       LabelText(RectF(0, Y - 8, CX - LaneW * 0.48, Y + 8), Name, clrSubtle, 10);
@@ -962,7 +962,7 @@ begin
     begin
       Canvas.Stroke.Kind := TBrushKind.Solid;
       Canvas.Stroke.Color := clrYou;
-      Canvas.StrokeThickness := 2;
+    //  Canvas.StrokeThickness := 2;
       Canvas.DrawRect(RectF(LaneX[Lane] - R * 1.6, LabelH + 2,
         LaneX[Lane] + R * 1.6, TreeH - 2), R * 0.6, R * 0.6, AllCorners, 1);
     end;

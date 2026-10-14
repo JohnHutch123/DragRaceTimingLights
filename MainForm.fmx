@@ -63,35 +63,38 @@ object frmMain: TfrmMain
       Margins.Left = 4.000000000000000000
       Margins.Right = 4.000000000000000000
       Position.X = 4.000000000000000000
-      Size.Width = 119.299999999999997158
+      Size.Width = 119.300003051757800000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
       Text = 'Tree: Pro'
+      TextSettings.Trimming = None
       OnClick = btnTreeModeClick
     end
     object btnLane: TButton
       Align = Left
       Margins.Left = 4.000000000000000000
       Margins.Right = 4.000000000000000000
-      Position.X = 131.300000000000011369
-      Size.Width = 119.299999999999997158
+      Position.X = 131.300003051757800000
+      Size.Width = 119.300003051757800000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 1
       Text = 'Lane: Left'
+      TextSettings.Trimming = None
       OnClick = btnLaneClick
     end
     object btnStaging: TButton
       Align = Left
       Margins.Left = 4.000000000000000000
       Margins.Right = 4.000000000000000000
-      Position.X = 258.600000000000022737
-      Size.Width = 119.299999999999997158
+      Position.X = 258.600006103515600000
+      Size.Width = 119.300003051757800000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 2
       Text = 'Stage: Auto'
+      TextSettings.Trimming = None
       OnClick = btnStagingClick
     end
   end
@@ -102,7 +105,7 @@ object frmMain: TfrmMain
     Margins.Right = 8.000000000000000000
     Margins.Bottom = 8.000000000000000000
     Size.Width = 374.000000000000000000
-    Size.Height = 424.000000000000000000
+    Size.Height = 380.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
     object rectHistory: TRectangle
@@ -110,7 +113,7 @@ object frmMain: TfrmMain
       Margins.Left = 8.000000000000000000
       Position.X = 254.000000000000000000
       Size.Width = 120.000000000000000000
-      Size.Height = 424.000000000000000000
+      Size.Height = 380.000000000000000000
       Size.PlatformDefault = False
       XRadius = 10.000000000000000000
       YRadius = 10.000000000000000000
@@ -129,14 +132,14 @@ object frmMain: TfrmMain
         Margins.Right = 6.000000000000000000
         Margins.Bottom = 6.000000000000000000
         Size.Width = 104.000000000000000000
-        Size.Height = 388.000000000000000000
+        Size.Height = 344.000000000000000000
         Size.PlatformDefault = False
       end
     end
     object pbTree: TPaintBox
       Align = Client
       Size.Width = 246.000000000000000000
-      Size.Height = 424.000000000000000000
+      Size.Height = 380.000000000000000000
       Size.PlatformDefault = False
       OnPaint = pbTreePaint
     end
