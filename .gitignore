@@ -18,3 +18,8 @@ __recovery/
 *.dproj.local
 *.tvsconfig
 *.~*
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
