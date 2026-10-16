@@ -72,6 +72,12 @@ If RAD Studio refuses the project file, delete `DragTree.dproj`, open
 `DragTree.dpr` instead (the IDE builds a fresh project file) and add the
 Android/iOS targets with right-click *Target Platforms > Add Platform*.
 
+## Mac and iPhone (Xcode)
+
+The `apple/` folder has a native SwiftUI version of the same app that builds
+for the Mac and the iPhone from one Xcode 14.2 project. See
+[apple/README.md](apple/README.md).
+
 ## Timing notes
 
 Times come from `TStopwatch` (high resolution). The tap is timestamped in the
