@@ -664,6 +664,13 @@ end;
 procedure TfrmMain.FormKeyUp(Sender: TObject; var Key: Word;
   var KeyChar: WideChar; Shift: TShiftState);
 begin
+  // Android Back button closes Settings instead of quitting the app
+  if (Key = vkHardwareBack) and FSettingsPanel.Visible then
+  begin
+    SettingsDoneClick(nil);
+    Key := 0;
+    Exit;
+  end;
   if (KeyChar = ' ') or (Key = vkSpace) then
   begin
     Exclude(FKeyPedals, pdBrake);
