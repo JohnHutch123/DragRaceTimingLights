@@ -102,6 +102,7 @@ type
     btnClear: TButton;
     tmrTree: TTimer;
     procedure FormCreate(Sender: TObject);
+    procedure FitDesktopWindow;
     procedure FormDestroy(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar;
       Shift: TShiftState);
@@ -287,12 +288,25 @@ begin
   FResults := TList<TRunResult>.Create;
   FWatch := TStopwatch.StartNew;
   FMultiTouch := HasMultiTouch;
+  FitDesktopWindow;
   LoadSettings;
   ApplyLook;
   CreatePads;
   CreateSettingsPanel;
   ResetTree;
   UpdateStats;
+end;
+
+procedure TfrmMain.FitDesktopWindow;
+begin
+  // On Windows and Mac open a phone-shaped window that fits the screen,
+  // centred. Phones always run full screen, so nothing to do there.
+{$IF not (DEFINED(IOS) or DEFINED(ANDROID))}
+  ClientWidth := 390;
+  ClientHeight := Min(780, Trunc(Screen.WorkAreaHeight) - 60);
+  Left := Trunc(Screen.WorkAreaLeft + (Screen.WorkAreaWidth - Width) / 2);
+  Top := Trunc(Screen.WorkAreaTop + (Screen.WorkAreaHeight - Height) / 2);
+{$ENDIF}
 end;
 
 procedure TfrmMain.FormDestroy(Sender: TObject);
@@ -305,7 +319,7 @@ var
   Ini: TMemIniFile;
   FileName: string;
 begin
-  FTreeMode := tmPro;
+  FTreeMode := tmSportsman; // most users race on a Sportsman tree
   FStageMode := smAuto;
   FTransMode := trAuto;
   FThrottleMode := thAuto;
@@ -316,7 +330,7 @@ begin
   try
     Ini := TMemIniFile.Create(FileName);
     try
-      FTreeMode := TTreeMode(EnsureRange(Ini.ReadInteger('Options', 'Tree', 0),
+      FTreeMode := TTreeMode(EnsureRange(Ini.ReadInteger('Options', 'Tree', Ord(tmSportsman)),
         Ord(Low(TTreeMode)), Ord(High(TTreeMode))));
       FStageMode := TStageMode(EnsureRange(Ini.ReadInteger('Options', 'Staging', 0),
         Ord(Low(TStageMode)), Ord(High(TStageMode))));
