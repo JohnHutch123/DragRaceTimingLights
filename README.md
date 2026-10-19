@@ -5,25 +5,42 @@ starting tree (Pro or Sportsman) so you can practise your reaction time.
 
 ## How it works
 
-1. Pick your options with the three buttons under the result:
-   - **Tree: Pro / Sportsman.** Pro lights all three ambers together with
-     the green 0.400 s later. Sportsman (full tree) lights the ambers one
-     after another 0.500 s apart, with the green 0.500 s after the last one.
-   - **Lane: Left / Right.** Your lane is marked **YOU** in blue on the tree,
-     and your car is the blue one.
-   - **Stage: Auto / Manual.** Auto rolls your car in for you. In Manual you
-     hold the launch pad to creep forward and let go once you're staged.
-2. Press **Start**. Both cars roll up to the beams in the staging view under
+Tap **Settings** to choose:
+
+- **Tree: Pro / Sportsman.** Pro lights all three ambers together with the
+  green 0.400 s later. Sportsman (full tree) lights the ambers one after
+  another 0.500 s apart, with the green 0.500 s after the last one.
+- **Lane: Left / Right.** Your lane is marked **YOU** in blue on the tree, and
+  your car is the blue one.
+- **Staging: Auto / Manual.** Auto rolls your car into stage for you. In
+  Manual you ease off the brake to creep forward and press it to stop.
+- **Transmission: Auto / Manual.** Manual adds a **CLUTCH** pedal.
+- **Throttle: Auto / Manual.** Manual adds a **THROTTLE** pedal that you must
+  hold for full throttle.
+
+The pedals are pads at the bottom of the screen, used with several fingers at
+once like real pedals (clutch left, brake middle, throttle right). Without
+multi-touch (a mouse on Windows) only the **BRAKE** pad is used, and the space
+bar works as the brake too.
+
+A run:
+
+1. Press **Start**. Both cars roll up to the beams in the staging view under
    the tree. The pre-stage bulb lights when your front tyre breaks the
    pre-stage beam, and the stage bulb 7 in later at the stage beam. Roll on
    past the pre-stage window and you are deep staged. Roll right through the
    stage beam (the red zone) and you get **TOO FAR FORWARD**, which ends the
    run.
-3. Once both lanes are staged, the tree starts after a random wait of 0.8 to
-   3.0 s.
-4. Tap the big **launch pad** at the bottom of the screen.
+2. Hold the car: **BRAKE** (plus **CLUTCH** with a manual gearbox). With
+   manual throttle, bring in the **THROTTLE** too.
+3. Once both lanes are staged and you are holding the car, the tree starts
+   after a random wait of 0.8 to 3.0 s.
+4. Launch by letting the car go: release the brake (automatic) or release
+   both brake and clutch (manual). Launching with the throttle closed bogs
+   the car.
 
-Your reaction time is measured from when the green is due:
+Your reaction time is measured from when the green is due to the moment you
+let the car go:
 
 | Time        | Meaning                       |
 |-------------|-------------------------------|
@@ -33,13 +50,12 @@ Your reaction time is measured from when the green is due:
 | 0.100 and up| Late                          |
 
 When you red-light, your red bulb lights and the tree carries on for the
-other lane. History marks Sportsman runs with **S** and red lights with **R**.
-Your options are saved between sessions.
+other lane. History marks Sportsman runs with **S**, red lights with **R** and
+bogged launches with **B**. Your settings are saved between sessions.
 
 Buttons: **Start** runs the tree, **Stop** aborts a run, **Reset** clears the
 lights for the next run, **Clear** wipes the history and stats.
-On Windows (handy for testing) **Enter** starts a run and **Space** is the
-launch pad (hold it to creep in Manual staging).
+On Windows, **Enter** starts a run.
 
 ## Building
 
