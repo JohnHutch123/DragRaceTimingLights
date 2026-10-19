@@ -1,7 +1,7 @@
 object frmMain: TfrmMain
   Left = 0
   Top = 0
-  Caption = 'Pro Tree Trainer'
+  Caption = 'Drag Tree'
   ClientHeight = 780
   ClientWidth = 390
   FormFactor.Width = 320
@@ -84,7 +84,7 @@ object frmMain: TfrmMain
     Margins.Right = 8.000000000000000000
     Margins.Bottom = 8.000000000000000000
     Size.Width = 374.000000000000000000
-    Size.Height = 380.000000000000000000
+    Size.Height = 360.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
     object rectHistory: TRectangle
@@ -92,7 +92,7 @@ object frmMain: TfrmMain
       Margins.Left = 8.000000000000000000
       Position.X = 254.000000000000000000
       Size.Width = 120.000000000000000000
-      Size.Height = 380.000000000000000000
+      Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       XRadius = 10.000000000000000000
       YRadius = 10.000000000000000000
@@ -111,14 +111,14 @@ object frmMain: TfrmMain
         Margins.Right = 6.000000000000000000
         Margins.Bottom = 6.000000000000000000
         Size.Width = 104.000000000000000000
-        Size.Height = 344.000000000000000000
+        Size.Height = 324.000000000000000000
         Size.PlatformDefault = False
       end
     end
     object pbTree: TPaintBox
       Align = Client
       Size.Width = 246.000000000000000000
-      Size.Height = 380.000000000000000000
+      Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       OnPaint = pbTreePaint
     end
