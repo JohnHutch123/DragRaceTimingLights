@@ -175,6 +175,7 @@
         <Android_BackgroundColor>#FFFFFF</Android_BackgroundColor>
         <Android_DarkBackgroundColor>#000000</Android_DarkBackgroundColor>
         <IncludeAndroid_Splash>false</IncludeAndroid_Splash>
+        <Android_NotificationAccentColor>#000000</Android_NotificationAccentColor>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
