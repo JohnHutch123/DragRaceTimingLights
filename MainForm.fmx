@@ -58,20 +58,10 @@ object frmMain: TfrmMain
     Size.Height = 40.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 4
-    object btnSettings: TButton
-      Align = Left
-      Size.Width = 100.000000000000000000
-      Size.Height = 40.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 0
-      Text = 'Settings'
-      TextSettings.Trimming = None
-      OnClick = btnSettingsClick
-    end
     object lblSummary: TLabel
       Align = Client
       Margins.Left = 10.000000000000000000
-      Size.Width = 264.000000000000000000
+      Size.Width = 364.000000000000000000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       Text = 'Pro tree'
@@ -90,8 +80,8 @@ object frmMain: TfrmMain
     object rectHistory: TRectangle
       Align = Right
       Margins.Left = 8.000000000000000000
-      Position.X = 254.000000000000000000
-      Size.Width = 120.000000000000000000
+      Position.X = 280.000000000000000000
+      Size.Width = 94.000000000000000000
       Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       XRadius = 10.000000000000000000
@@ -100,7 +90,7 @@ object frmMain: TfrmMain
         Align = Top
         Margins.Top = 6.000000000000000000
         Position.Y = 6.000000000000000000
-        Size.Width = 120.000000000000000000
+        Size.Width = 94.000000000000000000
         Size.Height = 24.000000000000000000
         Size.PlatformDefault = False
         Text = 'History'
@@ -110,14 +100,14 @@ object frmMain: TfrmMain
         Margins.Left = 10.000000000000000000
         Margins.Right = 6.000000000000000000
         Margins.Bottom = 6.000000000000000000
-        Size.Width = 104.000000000000000000
+        Size.Width = 78.000000000000000000
         Size.Height = 324.000000000000000000
         Size.PlatformDefault = False
       end
     end
     object pbTree: TPaintBox
       Align = Client
-      Size.Width = 246.000000000000000000
+      Size.Width = 272.000000000000000000
       Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       OnPaint = pbTreePaint
@@ -163,58 +153,6 @@ object frmMain: TfrmMain
     Size.PlatformDefault = False
     TabOrder = 3
     OnResize = layButtonsResize
-    object btnStart: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 4.000000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 0
-      Text = 'Start'
-      TextSettings.Trimming = None
-      OnClick = btnStartClick
-    end
-    object btnStop: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 99.500000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 1
-      Text = 'Stop'
-      TextSettings.Trimming = None
-      OnClick = btnStopClick
-    end
-    object btnReset: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 195.000000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 2
-      Text = 'Reset'
-      TextSettings.Trimming = None
-      OnClick = btnResetClick
-    end
-    object btnClear: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 290.500000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 3
-      Text = 'Clear'
-      TextSettings.Trimming = None
-      OnClick = btnClearClick
-    end
   end
   object tmrTree: TTimer
     Enabled = False

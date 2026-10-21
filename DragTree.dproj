@@ -6,7 +6,7 @@
         <AppType>Application</AppType>
         <MainSource>DragTree.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Android64</Platform>
         <TargetedPlatforms>562195</TargetedPlatforms>
     </PropertyGroup>
@@ -67,6 +67,12 @@
     <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_2)'!=''">
         <Cfg_2>true</Cfg_2>
         <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Android64' and '$(Cfg_2)'=='true') or '$(Cfg_2_Android64)'!=''">
+        <Cfg_2_Android64>true</Cfg_2_Android64>
+        <CfgParent>Cfg_2</CfgParent>
+        <Cfg_2>true</Cfg_2>
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="('$(Platform)'=='iOSDevice64' and '$(Cfg_2)'=='true') or '$(Cfg_2_iOSDevice64)'!=''">
@@ -168,6 +174,7 @@
         <VerInfo_Keys>package=com.johnhutch123.$(MSBuildProjectName);label=Drag Tree;versionCode=1;versionName=1.0.0;persistent=False;restoreAnyVersion=False;installLocation=auto;largeHeap=False;theme=TitleBar;hardwareAccelerated=true;apiKey=;minSdkVersion=23;targetSdkVersion=35</VerInfo_Keys>
         <Android_BackgroundColor>#FFFFFF</Android_BackgroundColor>
         <Android_DarkBackgroundColor>#000000</Android_DarkBackgroundColor>
+        <IncludeAndroid_Splash>false</IncludeAndroid_Splash>
         <Android_NotificationAccentColor>#000000</Android_NotificationAccentColor>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
@@ -175,6 +182,13 @@
         <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
         <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
         <DCC_DebugInformation>0</DCC_DebugInformation>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2_Android64)'!=''">
+        <VerInfo_Build>1</VerInfo_Build>
+        <VerInfo_Keys>package=com.johnhutch123.$(MSBuildProjectName);label=Drag Tree;versionCode=1;versionName=1.0.0;persistent=False;restoreAnyVersion=False;installLocation=auto;largeHeap=False;theme=TitleBar;hardwareAccelerated=true;apiKey=;minSdkVersion=23;targetSdkVersion=35</VerInfo_Keys>
+        <IncludeAndroid_Splash>false</IncludeAndroid_Splash>
+        <Android_BackgroundColor>#FFFFFF</Android_BackgroundColor>
+        <Android_DarkBackgroundColor>#000000</Android_DarkBackgroundColor>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_iOSDevice64)'!=''">
         <VerInfo_Keys>CFBundleName=$(MSBuildProjectName);CFBundleDevelopmentRegion=en;CFBundleDisplayName=Drag Tree;CFBundleIdentifier=com.johnhutch123.DragTree;CFBundleInfoDictionaryVersion=7.1;CFBundleVersion=1.0.1;CFBundleShortVersionString=1.0.0;CFBundlePackageType=APPL;CFBundleSignature=????;LSRequiresIPhoneOS=true;CFBundleAllowMixedLocalizations=YES;CFBundleExecutable=$(MSBuildProjectName);UIDeviceFamily=iPhoneAndiPad;UISupportedInterfaceOrientations=UIInterfaceOrientationPortrait;UIBackgroundModes=;ITSAppUsesNonExemptEncryption=false</VerInfo_Keys>
