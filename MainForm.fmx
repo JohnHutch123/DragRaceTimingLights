@@ -58,16 +58,6 @@ object frmMain: TfrmMain
     Size.Height = 40.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 4
-    object btnSettings: TButton
-      Align = Left
-      Size.Width = 100.000000000000000000
-      Size.Height = 40.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 0
-      Text = 'Settings'
-      TextSettings.Trimming = None
-      OnClick = btnSettingsClick
-    end
     object lblSummary: TLabel
       Align = Client
       Margins.Left = 10.000000000000000000
@@ -163,58 +153,6 @@ object frmMain: TfrmMain
     Size.PlatformDefault = False
     TabOrder = 3
     OnResize = layButtonsResize
-    object btnStart: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 4.000000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 0
-      Text = 'Start'
-      TextSettings.Trimming = None
-      OnClick = btnStartClick
-    end
-    object btnStop: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 99.500000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 1
-      Text = 'Stop'
-      TextSettings.Trimming = None
-      OnClick = btnStopClick
-    end
-    object btnReset: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 195.000000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 2
-      Text = 'Reset'
-      TextSettings.Trimming = None
-      OnClick = btnResetClick
-    end
-    object btnClear: TButton
-      Align = Left
-      Margins.Left = 4.000000000000000000
-      Margins.Right = 4.000000000000000000
-      Position.X = 290.500000000000000000
-      Size.Width = 87.500000000000000000
-      Size.Height = 56.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 3
-      Text = 'Clear'
-      TextSettings.Trimming = None
-      OnClick = btnClearClick
-    end
   end
   object tmrTree: TTimer
     Enabled = False

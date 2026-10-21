@@ -79,13 +79,37 @@ type
     LaunchAtMs: Double;    // opponent only: when it will leave
   end;
 
+  // A plain coloured button. The stock FMX button style looks greyed out
+  // (disabled) on Android against the dark background, so the app draws its
+  // own: a rounded rectangle with a centred white label, darker while pressed.
+  // It looks the same on every platform and never takes keyboard focus.
+  TTapButton = class(TRectangle)
+  private
+    FLabel: TLabel;
+    FColor: TAlphaColor;
+    FDown: Boolean;
+    function GetText: string;
+    procedure SetText(const Value: string);
+    procedure SetColor(const Value: TAlphaColor);
+    procedure UpdateFill;
+  protected
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState;
+      X, Y: Single); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState;
+      X, Y: Single); override;
+    procedure DoMouseLeave; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    property Text: string read GetText write SetText;
+    property Color: TAlphaColor read FColor write SetColor;
+  end;
+
   TfrmMain = class(TForm)
     layTop: TLayout;
     lblReaction: TLabel;
     lblVerdict: TLabel;
     lblStats: TLabel;
     layOptions: TLayout;
-    btnSettings: TButton;
     lblSummary: TLabel;
     layMiddle: TLayout;
     pbTree: TPaintBox;
@@ -96,10 +120,6 @@ type
     lblHint: TLabel;
     layPads: TLayout;
     layButtons: TLayout;
-    btnStart: TButton;
-    btnStop: TButton;
-    btnReset: TButton;
-    btnClear: TButton;
     tmrTree: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FitDesktopWindow;
@@ -149,9 +169,16 @@ type
     FPendingUpMs: Double;
     FPendingUnder: TPedals;      // pedals under the fingers listed at that lift
 
+    // buttons (made in code, see TTapButton)
+    btnSettings: TTapButton;
+    btnStart: TTapButton;
+    btnStop: TTapButton;
+    btnReset: TTapButton;
+    btnClear: TTapButton;
+
     // settings screen
     FSettingsPanel: TRectangle;
-    FSettingButtons: array[TSetting] of TButton;
+    FSettingButtons: array[TSetting] of TTapButton;
 
     function NowMs: Double;
     function GreenDueMs: Double;
@@ -170,6 +197,9 @@ type
     procedure StyleLabel(L: TLabel; Size: Single; Color: TAlphaColor;
       Bold: Boolean; Align: TTextAlign);
     procedure ApplyLook;
+    function MakeButton(AParent: TFmxObject; const AText: string;
+      AColor: TAlphaColor; AOnClick: TNotifyEvent): TTapButton;
+    procedure CreateButtons;
     procedure CreatePads;
     procedure CreateSettingsPanel;
     procedure SettingButtonClick(Sender: TObject);
@@ -217,6 +247,14 @@ const
   clrText       = TAlphaColor($FFF0F0F0);
   clrSubtle     = TAlphaColor($FF9A9A9A);
   clrPadIdle    = TAlphaColor($FF2C2C2C);
+
+  // button colours
+  clrBtnStart    = TAlphaColor($FF2E7D32); // green
+  clrBtnStop     = TAlphaColor($FFC62828); // red
+  clrBtnReset    = TAlphaColor($FFEF6C00); // orange
+  clrBtnClear    = TAlphaColor($FF546E7A); // slate
+  clrBtnSettings = TAlphaColor($FF1565C0); // blue
+  clrBtnOption   = TAlphaColor($FF37474F); // settings rows
 
   PedalColors: array[TPedal] of TAlphaColor =
     (TAlphaColor($FF3D7BFF), TAlphaColor($FFE53935), TAlphaColor($FF2EBD4E));
@@ -280,6 +318,94 @@ begin
     Result := System.IOUtils.TPath.Combine(Dir, 'DragTree.ini');
 end;
 
+{ TTapButton }
+
+function Darker(C: TAlphaColor): TAlphaColor;
+var
+  R: TAlphaColorRec;
+begin
+  R := TAlphaColorRec(C);
+  R.R := R.R * 7 div 10;
+  R.G := R.G * 7 div 10;
+  R.B := R.B * 7 div 10;
+  Result := TAlphaColor(R);
+end;
+
+constructor TTapButton.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  XRadius := 10;
+  YRadius := 10;
+  Stroke.Kind := TBrushKind.None;
+  Fill.Kind := TBrushKind.Solid;
+  HitTest := True;
+  FColor := TAlphaColor($FF555555);
+  UpdateFill;
+
+  FLabel := TLabel.Create(Self);
+  FLabel.Parent := Self;
+  FLabel.Stored := False;
+  FLabel.Align := TAlignLayout.Client;
+  FLabel.Margins.Left := 4;
+  FLabel.Margins.Right := 4;
+  FLabel.HitTest := False;
+  FLabel.WordWrap := True;
+  FLabel.StyledSettings := FLabel.StyledSettings - [TStyledSetting.Size,
+    TStyledSetting.FontColor, TStyledSetting.Style];
+  FLabel.TextSettings.Font.Size := 15;
+  FLabel.TextSettings.Font.Style := [TFontStyle.fsBold];
+  FLabel.TextSettings.FontColor := TAlphaColors.White;
+  FLabel.TextSettings.HorzAlign := TTextAlign.Center;
+  FLabel.TextSettings.VertAlign := TTextAlign.Center;
+end;
+
+function TTapButton.GetText: string;
+begin
+  Result := FLabel.Text;
+end;
+
+procedure TTapButton.SetText(const Value: string);
+begin
+  FLabel.Text := Value;
+end;
+
+procedure TTapButton.SetColor(const Value: TAlphaColor);
+begin
+  FColor := Value;
+  UpdateFill;
+end;
+
+procedure TTapButton.UpdateFill;
+begin
+  if FDown then
+    Fill.Color := Darker(FColor)
+  else
+    Fill.Color := FColor;
+end;
+
+procedure TTapButton.MouseDown(Button: TMouseButton; Shift: TShiftState;
+  X, Y: Single);
+begin
+  FDown := True;
+  UpdateFill;
+  inherited;
+end;
+
+procedure TTapButton.MouseUp(Button: TMouseButton; Shift: TShiftState;
+  X, Y: Single);
+begin
+  FDown := False;
+  UpdateFill;
+  inherited; // fires OnClick
+end;
+
+procedure TTapButton.DoMouseLeave;
+begin
+  FDown := False;
+  UpdateFill;
+  inherited;
+end;
+
 { TfrmMain }
 
 procedure TfrmMain.FormCreate(Sender: TObject);
@@ -290,6 +416,7 @@ begin
   FMultiTouch := HasMultiTouch;
   FitDesktopWindow;
   LoadSettings;
+  CreateButtons;
   ApplyLook;
   CreatePads;
   CreateSettingsPanel;
@@ -710,7 +837,7 @@ const
 var
   Box: TLayout;
   Title: TLabel;
-  Done: TButton;
+  Done: TTapButton;
   S: TSetting;
 begin
   FSettingsPanel := TRectangle.Create(Self);
@@ -737,26 +864,19 @@ begin
 
   for S := Low(TSetting) to High(TSetting) do
   begin
-    FSettingButtons[S] := TButton.Create(Self);
-    FSettingButtons[S].Parent := Box;
+    FSettingButtons[S] := MakeButton(Box, '', clrBtnOption, SettingButtonClick);
     FSettingButtons[S].Align := TAlignLayout.Top;
     FSettingButtons[S].Position.Y := RowH * (Ord(S) + 1); // keeps the order
     FSettingButtons[S].Height := RowH - 8;
     FSettingButtons[S].Margins.Bottom := 8;
     FSettingButtons[S].Tag := Ord(S);
-    FSettingButtons[S].CanFocus := False;
-    FSettingButtons[S].OnClick := SettingButtonClick;
   end;
 
-  Done := TButton.Create(Self);
-  Done.Parent := Box;
+  Done := MakeButton(Box, 'Done', clrBtnSettings, SettingsDoneClick);
   Done.Align := TAlignLayout.Top;
   Done.Position.Y := RowH * (Ord(High(TSetting)) + 2);
   Done.Height := RowH - 8;
   Done.Margins.Top := 8;
-  Done.Text := 'Done';
-  Done.CanFocus := False;
-  Done.OnClick := SettingsDoneClick;
 
   UpdateSettingsTexts;
 end;
@@ -870,24 +990,58 @@ begin
   rectHistory.Fill.Kind := TBrushKind.Solid;
   rectHistory.Fill.Color := clrPanel;
   rectHistory.Stroke.Kind := TBrushKind.None;
+end;
 
-  // Buttons must not take focus, otherwise the space bar "clicks" them
-  btnStart.CanFocus := False;
-  btnStop.CanFocus := False;
-  btnReset.CanFocus := False;
-  btnClear.CanFocus := False;
-  btnSettings.CanFocus := False;
+function TfrmMain.MakeButton(AParent: TFmxObject; const AText: string;
+  AColor: TAlphaColor; AOnClick: TNotifyEvent): TTapButton;
+begin
+  Result := TTapButton.Create(Self);
+  Result.Parent := AParent;
+  Result.Text := AText;
+  Result.Color := AColor;
+  Result.OnClick := AOnClick;
+end;
+
+procedure TfrmMain.CreateButtons;
+begin
+  btnSettings := MakeButton(layOptions, 'Settings', clrBtnSettings,
+    btnSettingsClick);
+  btnSettings.Align := TAlignLayout.Left;
+  btnSettings.Width := 100;
+
+  btnStart := MakeButton(layButtons, 'Start', clrBtnStart, btnStartClick);
+  btnStop := MakeButton(layButtons, 'Stop', clrBtnStop, btnStopClick);
+  btnReset := MakeButton(layButtons, 'Reset', clrBtnReset, btnResetClick);
+  btnClear := MakeButton(layButtons, 'Clear', clrBtnClear, btnClearClick);
+  layButtonsResize(layButtons);
 end;
 
 procedure TfrmMain.layButtonsResize(Sender: TObject);
+const
+  Edge = 4;
+  Gap = 8;
 var
   W: Single;
+  I: Integer;
+  B: TTapButton;
 begin
-  W := layButtons.Width / 4 - btnStart.Margins.Left - btnStart.Margins.Right;
-  btnStart.Width := W;
-  btnStop.Width := W;
-  btnReset.Width := W;
-  btnClear.Width := W;
+  // can fire while the form is still loading, before the buttons exist
+  if btnClear = nil then
+    Exit;
+  // the layout already has a 4 px margin each side, so the outer buttons
+  // line up with the 8 px margin of everything above
+  W := (layButtons.Width - 2 * Edge - 3 * Gap) / 4;
+  for I := 0 to 3 do
+  begin
+    case I of
+      0: B := btnStart;
+      1: B := btnStop;
+      2: B := btnReset;
+    else
+      B := btnClear;
+    end;
+    B.SetBounds(Edge + I * (W + Gap), 0, W, layButtons.Height);
+  end;
 end;
 
 procedure TfrmMain.SetVerdict(const Text: string; Color: TAlphaColor);
