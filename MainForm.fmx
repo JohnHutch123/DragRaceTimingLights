@@ -61,7 +61,7 @@ object frmMain: TfrmMain
     object lblSummary: TLabel
       Align = Client
       Margins.Left = 10.000000000000000000
-      Size.Width = 264.000000000000000000
+      Size.Width = 364.000000000000000000
       Size.Height = 40.000000000000000000
       Size.PlatformDefault = False
       Text = 'Pro tree'
@@ -80,8 +80,8 @@ object frmMain: TfrmMain
     object rectHistory: TRectangle
       Align = Right
       Margins.Left = 8.000000000000000000
-      Position.X = 254.000000000000000000
-      Size.Width = 120.000000000000000000
+      Position.X = 280.000000000000000000
+      Size.Width = 94.000000000000000000
       Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       XRadius = 10.000000000000000000
@@ -90,7 +90,7 @@ object frmMain: TfrmMain
         Align = Top
         Margins.Top = 6.000000000000000000
         Position.Y = 6.000000000000000000
-        Size.Width = 120.000000000000000000
+        Size.Width = 94.000000000000000000
         Size.Height = 24.000000000000000000
         Size.PlatformDefault = False
         Text = 'History'
@@ -100,14 +100,14 @@ object frmMain: TfrmMain
         Margins.Left = 10.000000000000000000
         Margins.Right = 6.000000000000000000
         Margins.Bottom = 6.000000000000000000
-        Size.Width = 104.000000000000000000
+        Size.Width = 78.000000000000000000
         Size.Height = 324.000000000000000000
         Size.PlatformDefault = False
       end
     end
     object pbTree: TPaintBox
       Align = Client
-      Size.Width = 246.000000000000000000
+      Size.Width = 272.000000000000000000
       Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       OnPaint = pbTreePaint
