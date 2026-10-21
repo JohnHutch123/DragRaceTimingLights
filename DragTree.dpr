@@ -10,6 +10,7 @@ uses
 
 begin
   Application.Initialize;
+  Application.FormFactor.Orientations := [TFormOrientation.Portrait];
   Application.FormFactor.Orientations := [TScreenOrientation.Portrait];
   Application.CreateForm(TfrmMain, frmMain);
   Application.Run;
