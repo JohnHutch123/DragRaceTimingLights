@@ -82,3 +82,7 @@ touch-down handler. Phone screens and touch panels add some latency
 
 - `DragTree.dpr` / `DragTree.dproj`: project
 - `MainForm.pas` / `MainForm.fmx`: tree drawing, timing and UI
+
+## App icons
+
+The app icons for Android, iOS, macOS and Windows are in [Icons/](Icons/README.md), with steps for setting them in Project > Options > Application > Icons.
