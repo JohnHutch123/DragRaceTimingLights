@@ -11,7 +11,7 @@ Notes marked **13.2** say where Delphi 13.2 is different.
 - On macOS 27 the current Xcode is **Xcode 27.1** (iOS 27.1 SDK). Xcode 27 runs only on Apple-silicon Macs and needs macOS 26.6 or later.
 - **Delphi 12 was released before iOS 26/27.** Embarcadero hasn't said it supports the iOS 27 SDK, and forum users needed workarounds just to get Delphi 12 linking with iOS 26. Expect the SDK import or the link step to fail on Delphi 12.
 - **Delphi 13.2** (released 17 Sep 2026) is reported by Embarcadero staff to work with macOS 27 and iOS 27.
-- Apple only accepts App Store uploads built with a recent SDK. Delphi 12 won't be able to publish to the App Store.
+- Apple only accepts App Store uploads built with a recent SDK (iOS 26 SDK or newer since April 2026), so plan to publish with 13.2.
 
 **What to do:** do Parts 1 to 4 now. Certificates, profiles and Keychain belong to Apple, and they carry over unchanged to Delphi 13.2. If Part 6 (SDK import) fails on Delphi 12, stop there and finish after upgrading. Don't burn time fighting it.
 
