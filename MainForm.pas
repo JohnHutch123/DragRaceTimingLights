@@ -6,23 +6,28 @@ unit MainForm;
     START  -> both cars roll up to the beams. The pre-stage bulb lights when
               the front tyre breaks the pre-stage beam, the stage bulb when it
               breaks the stage beam (7 in further on).
-           -> once both lanes are staged and you are holding the car on the
-              brake (and clutch, with a manual gearbox), a random wait
+           -> once both lanes are staged and you are holding the car (on the
+              brake with an automatic, clutch in with a manual), a random wait
               (0.8 to 3.0 s)
            -> countdown:
                 Pro tree:       all three ambers together, green 0.400 s later
                 Sportsman tree: ambers one after another 0.500 s apart,
                                 green 0.500 s after the last amber
   You launch by letting the car go: release the brake (automatic gearbox) or
-  release both brake and clutch (manual gearbox).
+  drop the clutch (manual gearbox). Never more than two pedals at once, like
+  two feet.
   Reaction time = release time - time the green is due.
   0.000 is a perfect light; anything below zero is a red light.
 
   Pedals are on-screen pads used with several fingers at once:
     BRAKE    always. Hold to stop, ease off to creep (manual staging).
-    CLUTCH   with a manual gearbox. Must be held in to stage.
-    THROTTLE with manual throttle. Hold for full throttle; launching without
-             it bogs the car.
+    CLUTCH   with a manual gearbox. Hold it in whenever the car is stopped:
+             on the brake with the clutch out the engine stalls. Once staged
+             with the clutch in, the brake can come off so the right foot can
+             go to the throttle; dropping the clutch is the launch. Dropping
+             it with the brake on or no throttle stalls.
+    THROTTLE with manual throttle. Hold for full revs (the pad shows the
+             rpm); launching without it bogs an automatic.
   Without multi-touch (a mouse on Windows) only the brake is used. On Windows
   the space bar is also the brake.
 
@@ -43,6 +48,14 @@ const
   AutoStartMinMs = 800;     // random wait after both lanes are staged
   AutoStartRandMs = 2200;
   HistoryLines = 20;
+
+  // engine, for the rev bar and stalling (manual gearbox)
+  IdleRpm: Double = 900.0;
+  RevLimitRpm: Double = 7000.0;
+  MaxGaugeRpm: Double = 8000.0;
+  RevUpRate: Double = 14000.0;    // rpm per second, throttle held
+  RevDownRate: Double = 9000.0;   // rpm per second, throttle off
+  StallGraceMs = 500;             // brake on, clutch out this long = stall
 
   // Staging geometry in inches, measured from the pre-stage beam to the
   // leading edge of the front tyre. Positive is forward.
@@ -155,6 +168,9 @@ type
     FRedLit: Boolean;            // red bulb in the user's lane
     FUserLaunched: Boolean;
     FBogged: Boolean;
+    FRpm: Double;                // engine speed shown on the throttle pad
+    FStallSinceMs: Double;       // manual gearbox: brake on, clutch out since
+    FRevFill: TRectangle;        // rev bar inside the throttle pad
     FResults: TList<TRunResult>;
 
     // pedals
@@ -219,6 +235,8 @@ type
     procedure StopRun(const Msg: string);
     procedure MoveCars(T, Dt: Double);
     procedure Launch(ReleaseMs: Double);
+    procedure Stall(const Why: string);
+    procedure UpdateRevs(Dt: Double);
     procedure ShowResult(const R: TRunResult);
     procedure SetVerdict(const Text: string; Color: TAlphaColor);
     procedure UpdateHint;
@@ -588,8 +606,12 @@ end;
 
 function TfrmMain.CarReady(const S: TPedals): Boolean;
 begin
-  // ready to start the tree: on the brake, and clutch in with a manual box
-  Result := (pdBrake in S) and ((EffTrans = trAuto) or (pdClutch in S));
+  // ready to start the tree: on the brake with an automatic; clutch in with
+  // a manual (the brake may already be off, ready for the throttle)
+  if EffTrans = trManual then
+    Result := pdClutch in S
+  else
+    Result := pdBrake in S;
 end;
 
 function TfrmMain.ThrottleOpen: Boolean;
@@ -617,11 +639,26 @@ begin
     FPads[P].OnMouseUp := PadMouseUp;
     FPads[P].OnMouseLeave := PadMouseLeave;
 
+    if P = pdThrottle then
+    begin
+      // rev bar: grows up from the bottom of the pad with the rpm
+      FRevFill := TRectangle.Create(Self);
+      FRevFill.Parent := FPads[P];
+      FRevFill.XRadius := 16;
+      FRevFill.YRadius := 16;
+      FRevFill.Fill.Kind := TBrushKind.Solid;
+      FRevFill.Fill.Color := TAlphaColor($55FFFFFF);
+      FRevFill.Stroke.Kind := TBrushKind.None;
+      FRevFill.HitTest := False;
+      FRevFill.Height := 0;
+    end;
+
     FPadLabels[P] := TLabel.Create(Self);
     FPadLabels[P].Parent := FPads[P];
     FPadLabels[P].Align := TAlignLayout.Client;
     FPadLabels[P].Text := PedalNames[P];
     StyleLabel(FPadLabels[P], 18, clrText, True, TTextAlign.Center);
+    FPadLabels[P].WordWrap := True;
   end;
   layPadsResize(layPads);
   UpdatePads;
@@ -651,6 +688,7 @@ begin
       Inc(I);
     end;
   end;
+  UpdateRevs(0);
 end;
 
 procedure TfrmMain.UpdatePads;
@@ -820,13 +858,29 @@ begin
   FPressed := New;
   UpdatePads;
 
-  // Letting the car go once the tree is running is the launch
+  // Letting the car go once the tree is running is the launch: the brake
+  // with an automatic, the clutch with a manual
   if FRunning and not FUserLaunched
-    and (FPhase in [tpWaiting, tpCountdown, tpGreen])
-    and CarHeld(Old) and not CarHeld(New) then
-    Launch(T);
+    and (FPhase in [tpWaiting, tpCountdown, tpGreen]) then
+  begin
+    if EffTrans = trAuto then
+    begin
+      if CarHeld(Old) and not CarHeld(New) then
+        Launch(T);
+    end
+    else if (pdClutch in Old) and not (pdClutch in New) then
+    begin
+      if pdBrake in New then
+        Stall('dropped the clutch on the brake')
+      else if not ThrottleOpen then
+        Stall('dropped the clutch with no throttle')
+      else
+        Launch(T);
+    end;
+  end;
 
-  UpdateHint;
+  if FRunning then
+    UpdateHint;
 end;
 
 { ---- settings screen ---- }
@@ -1062,6 +1116,9 @@ begin
   FRedLit := False;
   FUserLaunched := False;
   FBogged := False;
+  FRpm := IdleRpm;
+  FStallSinceMs := 0;
+  UpdateRevs(0);
   for Lane := 0 to 1 do
   begin
     FCars[Lane] := Default(TCar);
@@ -1180,6 +1237,23 @@ begin
     PedalsChanged(FPendingUpMs);
   end;
 
+  // Manual gearbox: on the brake with the clutch out the engine stalls.
+  // A short grace lets the fingers land one after the other.
+  if (EffTrans = trManual) and not FUserLaunched
+    and (pdBrake in FPressed) and not (pdClutch in FPressed) then
+  begin
+    if FStallSinceMs = 0 then
+      FStallSinceMs := T
+    else if T - FStallSinceMs > StallGraceMs then
+    begin
+      Stall('clutch out on the brake');
+      Exit;
+    end;
+  end
+  else
+    FStallSinceMs := 0;
+
+  UpdateRevs(Dt);
   MoveCars(T, Dt);
 
   case FPhase of
@@ -1235,6 +1309,50 @@ begin
   end;
 
   pbTree.Repaint;
+end;
+
+procedure TfrmMain.Stall(const Why: string);
+begin
+  FRpm := 0;
+  UpdateRevs(0);
+  StopRun('STALLED - ' + Why);
+  lblReaction.Text := 'STALL';
+  lblReaction.TextSettings.FontColor := clrRed;
+  lblVerdict.TextSettings.FontColor := clrRed;
+  lblHint.Text := 'Press START to try again';
+end;
+
+procedure TfrmMain.UpdateRevs(Dt: Double);
+var
+  Target: Double;
+  H: Single;
+begin
+  if (FRevFill = nil) or (FPads[pdThrottle] = nil) then
+    Exit;
+  // the engine runs while a run is going and it hasn't stalled
+  if FRunning then
+  begin
+    if pdThrottle in FPressed then
+      Target := RevLimitRpm
+    else
+      Target := IdleRpm;
+    if FRpm < Target then
+      FRpm := Min(Target, FRpm + RevUpRate * Dt)
+    else
+      FRpm := Max(Target, FRpm - RevDownRate * Dt);
+  end;
+  H := FPads[pdThrottle].Height * EnsureRange(FRpm / MaxGaugeRpm, 0.0, 1.0);
+  FRevFill.SetBounds(0, FPads[pdThrottle].Height - H,
+    FPads[pdThrottle].Width, H);
+  if FRpm >= RevLimitRpm - 200 then
+    FRevFill.Fill.Color := TAlphaColor($66FF5252)  // on the limiter
+  else
+    FRevFill.Fill.Color := TAlphaColor($55FFFFFF);
+  if FRpm <= 0 then
+    FPadLabels[pdThrottle].Text := PedalNames[pdThrottle] + sLineBreak + 'engine off'
+  else
+    FPadLabels[pdThrottle].Text := PedalNames[pdThrottle] + sLineBreak +
+      Format('%d rpm', [Round(FRpm / 100) * 100]);
 end;
 
 procedure TfrmMain.Launch(ReleaseMs: Double);
@@ -1309,7 +1427,7 @@ var
   Need: string;
 begin
   if EffTrans = trManual then
-    Need := 'hold BRAKE + CLUTCH'
+    Need := 'hold the CLUTCH in'
   else
     Need := 'hold BRAKE';
 
@@ -1327,6 +1445,9 @@ begin
     else
       lblHint.Text := '';
   end
+  else if (EffTrans = trManual) and (pdBrake in FPressed)
+    and not (pdClutch in FPressed) then
+    lblHint.Text := 'CLUTCH in or you will stall!'
   else if FPhase = tpStaging then
   begin
     if (FStageMode = smManual) and not StageLit(FUserLane) then
@@ -1337,7 +1458,18 @@ begin
       lblHint.Text := 'Waiting for the other lane';
   end
   else if EffTrans = trManual then
-    lblHint.Text := 'Release BRAKE and CLUTCH to launch'
+  begin
+    if (pdBrake in FPressed) and (EffThrottle = thManual) then
+      lblHint.Text := 'Brake off, foot on the THROTTLE'
+    else if pdBrake in FPressed then
+      lblHint.Text := 'Brake off, drop the CLUTCH on green'
+    else if (EffThrottle = thManual) and not ThrottleOpen then
+      lblHint.Text := 'Hold THROTTLE, drop the CLUTCH on green'
+    else
+      lblHint.Text := 'Drop the CLUTCH to launch';
+  end
+  else if (EffThrottle = thManual) and not ThrottleOpen then
+    lblHint.Text := 'Hold THROTTLE, release BRAKE on green'
   else
     lblHint.Text := 'Release BRAKE to launch';
 end;
