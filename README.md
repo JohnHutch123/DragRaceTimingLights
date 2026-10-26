@@ -14,12 +14,14 @@ Tap **Settings** to choose:
   your car is the blue one.
 - **Staging: Auto / Manual.** Auto rolls your car into stage for you. In
   Manual you ease off the brake to creep forward and press it to stop.
-- **Transmission: Auto / Manual.** Manual adds a **CLUTCH** pedal.
+- **Transmission: Auto / Manual.** Manual adds a **CLUTCH** pedal. Stop on
+  the brake with the clutch out and the engine **stalls**.
 - **Throttle: Auto / Manual.** Manual adds a **THROTTLE** pedal that you must
-  hold for full throttle.
+  hold for full revs. The throttle pad fills up with the rpm as a rev meter.
 
 The pedals are pads at the bottom of the screen, used with several fingers at
-once like real pedals (clutch left, brake middle, throttle right). Without
+once like real pedals (clutch left, brake middle, throttle right). Like two
+feet, you never need more than two pads at once. Without
 multi-touch (a mouse on Windows) only the **BRAKE** pad is used, and the space
 bar works as the brake too.
 
@@ -31,13 +33,18 @@ A run:
    past the pre-stage window and you are deep staged. Roll right through the
    stage beam (the red zone) and you get **TOO FAR FORWARD**, which ends the
    run.
-2. Hold the car: **BRAKE** (plus **CLUTCH** with a manual gearbox). With
-   manual throttle, bring in the **THROTTLE** too.
+2. Hold the car:
+   - Automatic: hold **BRAKE**. With manual throttle, hold **THROTTLE** too
+     (left finger brake, right finger throttle).
+   - Manual: stop with **BRAKE** and **CLUTCH** together (the clutch must be in
+     or the engine stalls). Once staged, keep the clutch in and take the right
+     finger off the brake and onto the **THROTTLE**.
 3. Once both lanes are staged and you are holding the car, the tree starts
    after a random wait of 0.8 to 3.0 s.
-4. Launch by letting the car go: release the brake (automatic) or release
-   both brake and clutch (manual). Launching with the throttle closed bogs
-   the car.
+4. Launch by letting the car go: release the brake (automatic) or drop the
+   clutch (manual). With an automatic, launching with the throttle closed bogs
+   the car. With a manual, dropping the clutch with the brake still on or no
+   throttle stalls it.
 
 Your reaction time is measured from when the green is due to the moment you
 let the car go:
