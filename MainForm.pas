@@ -171,6 +171,9 @@ type
     FRpm: Double;                // engine speed shown on the throttle pad
     FStallSinceMs: Double;       // manual gearbox: brake on, clutch out since
     FRevFill: TRectangle;        // rev bar inside the throttle pad
+    FRevTimer: TTimer;           // runs the rev bar all the time, not just
+    FRevLastMs: Double;          //   while the tree timer is going
+    FEngineOn: Boolean;          // false after a stall until the next run
     FResults: TList<TRunResult>;
 
     // pedals
@@ -237,6 +240,7 @@ type
     procedure Launch(ReleaseMs: Double);
     procedure Stall(const Why: string);
     procedure UpdateRevs(Dt: Double);
+    procedure RevTimerTick(Sender: TObject);
     procedure ShowResult(const R: TRunResult);
     procedure SetVerdict(const Text: string; Color: TAlphaColor);
     procedure UpdateHint;
@@ -437,6 +441,12 @@ begin
   CreateButtons;
   ApplyLook;
   CreatePads;
+  FEngineOn := True;
+  FRevLastMs := NowMs;
+  FRevTimer := TTimer.Create(Self);
+  FRevTimer.Interval := 30;
+  FRevTimer.OnTimer := RevTimerTick;
+  FRevTimer.Enabled := True;
   CreateSettingsPanel;
   ResetTree;
   UpdateStats;
@@ -1117,6 +1127,7 @@ begin
   FUserLaunched := False;
   FBogged := False;
   FRpm := IdleRpm;
+  FEngineOn := True;
   FStallSinceMs := 0;
   UpdateRevs(0);
   for Lane := 0 to 1 do
@@ -1253,7 +1264,6 @@ begin
   else
     FStallSinceMs := 0;
 
-  UpdateRevs(Dt);
   MoveCars(T, Dt);
 
   case FPhase of
@@ -1314,12 +1324,22 @@ end;
 procedure TfrmMain.Stall(const Why: string);
 begin
   FRpm := 0;
+  FEngineOn := False;
   UpdateRevs(0);
   StopRun('STALLED - ' + Why);
   lblReaction.Text := 'STALL';
   lblReaction.TextSettings.FontColor := clrRed;
   lblVerdict.TextSettings.FontColor := clrRed;
   lblHint.Text := 'Press START to try again';
+end;
+
+procedure TfrmMain.RevTimerTick(Sender: TObject);
+var
+  T: Double;
+begin
+  T := NowMs;
+  UpdateRevs(Min((T - FRevLastMs) / 1000, 0.1));
+  FRevLastMs := T;
 end;
 
 procedure TfrmMain.UpdateRevs(Dt: Double);
@@ -1329,8 +1349,9 @@ var
 begin
   if (FRevFill = nil) or (FPads[pdThrottle] = nil) then
     Exit;
-  // the engine runs while a run is going and it hasn't stalled
-  if FRunning then
+  // the engine runs unless it has stalled; it revs whenever the throttle
+  // is held and drops back to idle when it is let go, run or no run
+  if FEngineOn then
   begin
     if pdThrottle in FPressed then
       Target := RevLimitRpm
