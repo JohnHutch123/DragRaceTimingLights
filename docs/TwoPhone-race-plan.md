@@ -247,8 +247,9 @@ settings, and is used in solo runs too.
 | Rev limit / shift point | 7,000 / 6,800 rpm | Ties in with the rev bar the throttle pad already shows |
 | Launch | 4,000 rpm (manual) or 2,500 rpm stall (auto) | Manual uses the revs you are holding on the throttle pad when you drop the clutch |
 
-Units: kW / kg / km/h by default, with an hp / lb / mph switch, because time
-slips at many tracks still show mph.
+Units: **metric and imperial** are both built in, with a switch on the
+Settings screen (kW / kg / km/h or hp / lb / mph). Metric is the default.
+Time slips follow the switch, because many tracks still show mph.
 
 Race length is chosen by the host (or by you in solo): **1/8 mile** (660 ft,
 201 m), **1000 ft** (305 m), or **1/4 mile** (1320 ft, 402 m).
@@ -265,6 +266,7 @@ whatever they like, because that's their own text on their own phone.
 | Daily hatchback | 90 kW | 1,150 kg | FWD | 16.5 s |
 | Hot hatch | 180 kW | 1,350 kg | FWD | 14.0 s |
 | Turbo AWD sedan | 220 kW | 1,500 kg | AWD | 13.3 s |
+| Twin turbo AWD sedan | 330 kW | 1,900 kg | AWD | 12.6 s |
 | V8 sedan | 300 kW | 1,800 kg | RWD | 12.9 s |
 | Modern muscle car | 340 kW | 1,750 kg | RWD | 12.3 s |
 | Supercharged V8 | 485 kW | 1,900 kg | RWD | 11.4 s |
@@ -443,8 +445,9 @@ can be tried at any time.
 1. **Cars and elapsed time, solo.** `CarSim.pas` with the presets, checked
    against the rough times in section 6 using a small Windows console test.
    Car screen, race length setting, the track strip, time slips, win light,
-   and the computer opponent driving a car. Version 1.1 could ship with just
-   this.
+   and the computer opponent driving a car. **This ships on its own as
+   version 1.1** (John, 18 Nov 2026); the Bluetooth phases follow in a later
+   update.
 2. **BLE spike (the risk).** A throwaway test form, outside the main app:
    one phone advertises, the other finds it, connects, and they echo
    messages and show round-trip times. Test all four combinations: iPhone
@@ -498,14 +501,11 @@ are signed 32-bit in 0.1 ms units (a "before the tree" foul can be several secon
 - A race is won on **reaction time + elapsed time** (first to the finish
   line), from a car each player sets up or picks from a list. (John,
   18 Nov 2026)
-
-## Open questions for John
-
-- Start with **automatic shifts** at the shift point (planned), or do you
-  want to shift by hand during the run?
-- **kW / kg / km/h** as the default units (planned, with an hp / lb / mph
-  switch), or imperial first?
-- Are the **presets** in section 6 the right kinds of cars, and which would
-  you add?
-- Do **phase 1 (cars, solo)** first and ship it as 1.1 before the Bluetooth
-  work (recommended), or build it all together?
+- **Automatic shifts** at the shift point to start with; manual shifting
+  may come later. (John, 18 Nov 2026)
+- **Metric and imperial** units both supported, switchable. (John,
+  18 Nov 2026)
+- Presets as listed in section 6, including John's **twin turbo AWD sedan**
+  (330 kW, 1,900 kg, AWD). (John, 18 Nov 2026)
+- **Cars and solo racing ship first as version 1.1**, before the Bluetooth
+  work. (John, 18 Nov 2026)
