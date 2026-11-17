@@ -397,7 +397,7 @@ both gearbox settings, and keeps manual shifting as an option to try later.
   bump the version (1.1.0) and build number.
 - **Privacy policy** (`docs/privacy-policy.md`) needs a line: "Race mode uses
   Bluetooth to talk directly to another phone nearby. Only race data (lane,
-  tree timing, reaction times, a device name) is exchanged, it never leaves
+  tree timing, reaction and elapsed times, car settings, a device name) is exchanged, it never leaves
   the two phones, and nothing is sent to us." The "does not ask for access"
   list needs "Bluetooth (only when you start a race)".
 - **Apple App Privacy label**: stays "Data Not Collected", because nothing
