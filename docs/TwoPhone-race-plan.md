@@ -261,20 +261,21 @@ people's trademarks) and Google's equivalent make real car names a review
 risk, and generic presets avoid it. Players can rename their own saved cars
 whatever they like, because that's their own text on their own phone.
 
-| Preset | Power | Weight | Drive | Rough 1/4 mile |
+| Preset | Power | Weight | Drive | Model 1/4 mile (auto, prepped) |
 |---|---|---|---|---|
-| Daily hatchback | 90 kW | 1,150 kg | FWD | 16.5 s |
-| Hot hatch | 180 kW | 1,350 kg | FWD | 14.0 s |
-| Turbo AWD sedan | 220 kW | 1,500 kg | AWD | 13.3 s |
-| Twin turbo AWD sedan | 330 kW | 1,900 kg | AWD | 12.6 s |
-| V8 sedan | 300 kW | 1,800 kg | RWD | 12.9 s |
-| Modern muscle car | 340 kW | 1,750 kg | RWD | 12.3 s |
-| Supercharged V8 | 485 kW | 1,900 kg | RWD | 11.4 s |
-| Superbike | 150 kW | 200 kg + rider | RWD | 10.0 s (traction and wheelie limited) |
-| Street/strip turbo | 600 kW | 1,500 kg | RWD, radials | 9.6 s |
-| Pro-mod style | 2,000 kW | 1,200 kg | RWD, slicks | 6.0 s |
+| Daily hatchback | 90 kW | 1,150 kg | FWD | 16.4 s |
+| Hot hatch | 180 kW | 1,350 kg | FWD, turbo | 14.2 s |
+| Turbo AWD sedan | 220 kW | 1,500 kg | AWD, turbo | 13.0 s |
+| Twin turbo AWD sedan | 330 kW | 1,900 kg | AWD, turbo | 12.4 s |
+| V8 sedan | 300 kW | 1,800 kg | RWD | 13.2 s |
+| Modern muscle car | 340 kW | 1,750 kg | RWD | 12.8 s |
+| Supercharged V8 | 485 kW | 1,900 kg | RWD, street tyres | 12.4 s (traction limited) |
+| Superbike | 150 kW | 280 kg with rider | RWD | 9.7 s |
+| Street/strip turbo | 600 kW | 1,500 kg | RWD, radials | 9.7 s |
+| Pro-mod style | 2,400 kW | 1,200 kg | RWD, slicks | 6.1 s |
 
-The rough times come from the well-known Hale formula
+The model times are from `Tests/CarSimTest.dpr` (version 1.1). Before
+building, the targets came from the well-known Hale formula
 (ET = 5.825 x (lb / hp)^(1/3), trap mph = 234 x (hp / lb)^(1/3)), which is
 what the model should land near for a clean full-throttle run. That gives us a
 simple check while tuning: if the V8 sedan runs 10 s, something is wrong.
@@ -298,7 +299,7 @@ be tested on Windows with a console program). Each time step it does:
    catch up, so too few revs bogs and too many spins the tyres. Auto: the
    torque converter holds the stall rpm until it locks up.
 5. **Shifts:** at the shift point the car changes up, with a short gap with
-   no drive (0.25 s auto, 0.15 s manual).
+   no drive (0.15 s manual; an automatic keeps 40% of the drive for 0.20 s).
 6. **Drag:** air drag (from a frontal area x drag figure, preset per car) and
    rolling resistance.
 7. **Speed and distance:** add up acceleration over 1 ms steps. Record the

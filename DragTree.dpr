@@ -4,7 +4,8 @@ uses
   System.StartUpCopy,
   FMX.Forms,
   FMX.Types,
-  MainForm in 'MainForm.pas' {frmMain};
+  MainForm in 'MainForm.pas' {frmMain},
+  CarSim in 'CarSim.pas';
 
 {$R *.res}
 
