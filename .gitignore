@@ -1,12 +1,12 @@
 # Delphi build output
-Win32/
-Win64/
-Android/
-Android64/
-iOSDevice64/
-iOSSimARM64/
-OSX64/
-OSXARM64/
+/Win32/
+/Win64/
+/Android/
+/Android64/
+/iOSDevice64/
+/iOSSimARM64/
+/OSX64/
+/OSXARM64/
 __history/
 __recovery/
 *.dcu
