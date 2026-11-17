@@ -60,6 +60,45 @@ When you red-light, your red bulb lights and the tree carries on for the
 other lane. History marks Sportsman runs with **S**, red lights with **R** and
 bogged launches with **B**. Your settings are saved between sessions.
 
+## Cars and the race down the track
+
+After the launch both cars run down the track, and **the first car to the
+finish line wins**: reaction time plus elapsed time. A red light loses. The
+track view under the tree shows both cars, the **WIN** light comes on over
+the winner's lane, and a **time slip** shows both lanes' reaction time,
+60 ft, 330 ft, 1/8 mile, 1000 ft and 1/4 mile times and speeds. History shows
+each run's elapsed time with **W** (win), **L** (loss) or **T** (tie).
+
+The Settings screen has four more rows:
+
+- **Car** opens the Car screen: pick one of ten presets with - / +, then
+  change power, weight, drive (RWD / FWD / AWD), turbo, tyres (street, drag
+  radial, slick), number of gears, final drive, shift point and launch rpm
+  (manual gearbox) or stall speed (automatic). Hold - or + to change quickly.
+  The bottom line shows the best run the car can do, so you can see what a
+  change does.
+- **Race:** 1/8 mile, 1000 ft or 1/4 mile.
+- **Track:** prepped strip, dry street or wet. Less grip means more
+  wheelspin; slicks are hopeless in the wet, AWD copes best.
+- **Units:** kW, kg, km/h or hp, lb, mph.
+
+The run is worked out by `CarSim.pas`: engine torque from the power figure
+(with turbo lag), clutch slip or torque converter at the launch, the gears
+(changed up automatically at the shift point), tyre grip with weight moving
+to the rear, wheelspin, air drag and rolling resistance, every millisecond.
+With manual throttle, lifting off the THROTTLE pad really costs time, and a
+manual launches on the revs you are holding (the throttle pad holds the
+launch rpm while you are staged, like a two-step rev limiter; with an
+automatic on the brake it revs to the stall speed). Launch on too few revs
+and the car bogs; too many and the tyres spin.
+
+The car in the other lane drives the same car as you, flat out, with a
+reaction time of 0.040 to 0.240 s.
+
+`Tests/CarSimTest.dpr` is a small console program that prints every preset's
+runs on each track and checks them against real-world times. Build it as a
+Windows console app in RAD Studio (or with Free Pascal).
+
 Buttons: **Start** runs the tree, **Stop** aborts a run, **Reset** clears the
 lights for the next run, **Clear** wipes the history and stats.
 On Windows, **Enter** starts a run.
@@ -89,6 +128,8 @@ touch-down handler. Phone screens and touch panels add some latency
 
 - `DragTree.dpr` / `DragTree.dproj`: project
 - `MainForm.pas` / `MainForm.fmx`: tree drawing, timing and UI
+- `CarSim.pas`: the car model and the preset cars (no UI code)
+- `Tests/CarSimTest.dpr`: console check of the car model
 
 ## App icons
 
