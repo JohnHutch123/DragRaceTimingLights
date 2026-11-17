@@ -125,6 +125,25 @@ def save(img, path, size, rgb=False):
     out.save(path, optimize=True)
 
 
+ADAPTIVE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />{mono}
+</adaptive-icon>
+"""
+
+
+def write_adaptive_xml():
+    """ic_launcher.xml for Android 8+ (v26) and Android 13+ themed icons (v33)."""
+    d = f"{HERE}/Android/Adaptive"
+    with open(f"{d}/ic_launcher.xml", "w", newline="\n") as f:
+        f.write(ADAPTIVE_XML.format(mono=""))
+    os.makedirs(f"{d}/v33", exist_ok=True)
+    with open(f"{d}/v33/ic_launcher.xml", "w", newline="\n") as f:
+        f.write(ADAPTIVE_XML.format(
+            mono='\n    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />'))
+
+
 def main():
     master = full_icon()
 
@@ -143,6 +162,7 @@ def main():
     mono = Image.new("RGBA", (SS, SS), (0, 0, 0, 0))
     mono.putalpha(fg.getchannel("A").point(lambda a: 255 if a > 140 else 0))
     save(mono, f"{HERE}/Android/Adaptive/ic_launcher_monochrome.png", 432)
+    write_adaptive_xml()
 
     # --- Google Play store listing icon: 512x512, square (Play rounds it)
     save(master, f"{HERE}/Store/PlayStore_512x512.png", 512, rgb=True)
