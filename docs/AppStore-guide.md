@@ -5,7 +5,7 @@ Step-by-step guide for getting the Delphi FireMonkey app **Drag Tree**
 Checked against Apple's published rules on 26 October 2026.
 
 For setting up Xcode, PAServer, certificates and running on your own iPhone, see
-`iPhone-and-Mac-setup.md` first. This guide starts once the app runs on your iPhone.
+`Android-and-Mac-guide.md` (Chapter 2) first. This guide starts once the app runs on your iPhone.
 
 ## The short version
 
