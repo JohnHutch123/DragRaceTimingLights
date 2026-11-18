@@ -144,16 +144,40 @@ def write_adaptive_xml():
             mono='\n    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />'))
 
 
+# Android splash image sizes Delphi lists on Project Options > Application >
+# Icons (Splash image 426x320 ... 960x720). All deploy as drawable/splash_image.
+SPLASH_SIZES = ((426, 320), (470, 320), (640, 480), (960, 720))
+
+
+def write_splash(rounded):
+    """Rounded icon centred on a transparent canvas; the #121212 splash
+    background colour set in the project fills the rest of the screen."""
+    for w, h in SPLASH_SIZES:
+        img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        s = int(h * 0.6)
+        img.alpha_composite(rounded.resize((s, s), Image.LANCZOS), ((w - s) // 2, (h - s) // 2))
+        os.makedirs(f"{HERE}/Android/Splash", exist_ok=True)
+        img.save(f"{HERE}/Android/Splash/SplashImage_{w}x{h}.png", optimize=True)
+
+
+def rounded_icon(master):
+    rounded = master.copy()
+    rounded.putalpha(ImageChops.multiply(master.getchannel("A"), rounded_mask(SS, 0.18)))
+    return rounded
+
+
 def main():
     master = full_icon()
 
     # Rounded square used for Android legacy launcher icons and Windows
-    rounded = master.copy()
-    rounded.putalpha(ImageChops.multiply(master.getchannel("A"), rounded_mask(SS, 0.18)))
+    rounded = rounded_icon(master)
 
     # --- Android legacy launcher icons (Project Options > Icons > Android)
     for s in (36, 48, 72, 96, 144, 192):
         save(rounded, f"{HERE}/Android/LauncherIcon_{s}x{s}.png", s)
+
+    # --- Android splash images (drawable/splash_image)
+    write_splash(rounded)
 
     # --- Android adaptive icon layers (Android 8+), 432 px = 108 dp at xxxhdpi
     fg = tree(SS, scale=0.72)
