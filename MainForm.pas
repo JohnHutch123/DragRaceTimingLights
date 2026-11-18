@@ -199,6 +199,10 @@ type
     FSettingsPanel: TRectangle;
     FSettingButtons: array[TSetting] of TTapButton;
 
+    // Android system bars (status bar, navigation bar), see ApplySystemInsets
+    FInsetTimer: TTimer;
+    FInsetTries: Integer;
+
     function NowMs: Double;
     function GreenDueMs: Double;
     function OppLane: Integer;
@@ -245,6 +249,9 @@ type
     procedure SetVerdict(const Text: string; Color: TAlphaColor);
     procedure UpdateHint;
     procedure UpdateStats;
+    procedure ApplySystemInsets;
+    procedure InsetTimerTick(Sender: TObject);
+    procedure FormResized(Sender: TObject);
   end;
 
 var
@@ -252,7 +259,44 @@ var
 
 implementation
 
+{$IFDEF ANDROID}
+uses
+  Androidapi.JNIBridge, Androidapi.JNI.JavaTypes,
+  Androidapi.JNI.GraphicsContentViewText, Androidapi.Helpers,
+  FMX.Platform;
+{$ENDIF}
+
 {$R *.fmx}
+
+{$IFDEF ANDROID}
+// Just the few Java methods needed to read the system bar sizes. Declared
+// here so they don't depend on which Android API level Delphi's own
+// headers cover. getRootWindowInsets is API 23+, the app's minimum is 24.
+type
+  JDTWindowInsetsClass = interface(JObjectClass)
+    ['{6B0C2D7E-3F4A-4E8B-9C21-5A7D8E9F0B13}']
+  end;
+
+  [JavaSignature('android/view/WindowInsets')]
+  JDTWindowInsets = interface(JObject)
+    ['{8E2F4A61-7B3C-4D9E-A1F5-2C6B8D0E4F27}']
+    function getSystemWindowInsetTop: Integer; cdecl;
+    function getSystemWindowInsetBottom: Integer; cdecl;
+  end;
+  TJDTWindowInsets = class(TJavaGenericImport<JDTWindowInsetsClass, JDTWindowInsets>) end;
+
+  JDTViewClass = interface(JObjectClass)
+    ['{3A9D5E72-1C4B-4F6A-B8E3-7D2F0A5C9E41}']
+  end;
+
+  [JavaSignature('android/view/View')]
+  JDTView = interface(JObject)
+    ['{C47E1B95-2D8A-4E3F-9B6C-0F5A3D7E8B62}']
+    function getRootWindowInsets: JDTWindowInsets; cdecl;
+    function getHeight: Integer; cdecl;
+  end;
+  TJDTView = class(TJavaGenericImport<JDTViewClass, JDTView>) end;
+{$ENDIF}
 
 const
   clrBackground = TAlphaColor($FF121212);
@@ -450,6 +494,91 @@ begin
   CreateSettingsPanel;
   ResetTree;
   UpdateStats;
+{$IFDEF ANDROID}
+  // The window isn't on screen yet, so the bar sizes aren't known. Try a
+  // few times shortly after start, and again whenever the form resizes
+  // (rotation, switching between gesture and 3-button navigation).
+  OnResize := FormResized;
+  FInsetTimer := TTimer.Create(Self);
+  FInsetTimer.Interval := 150;
+  FInsetTimer.OnTimer := InsetTimerTick;
+  FInsetTimer.Enabled := True;
+{$ENDIF}
+end;
+
+procedure TfrmMain.InsetTimerTick(Sender: TObject);
+begin
+  ApplySystemInsets;
+  Inc(FInsetTries);
+  if FInsetTries >= 20 then // about 3 seconds
+    FInsetTimer.Enabled := False;
+end;
+
+procedure TfrmMain.FormResized(Sender: TObject);
+begin
+  ApplySystemInsets;
+end;
+
+procedure TfrmMain.ApplySystemInsets;
+{$IFDEF ANDROID}
+var
+  Decor: JDTView;
+  Insets: JDTWindowInsets;
+  ScreenSvc: IFMXScreenService;
+  Scale, DecorH, FormH, Gap, TopIn, BotIn, Covered, PadTop, PadBot: Single;
+{$ENDIF}
+begin
+{$IFDEF ANDROID}
+  // Android 15+ with targetSdk 35 or more always draws the app edge to edge:
+  // the app runs under the status bar and the navigation bar. Pad the form
+  // by however much of those bars actually lie over it. Delphi may already
+  // keep the form below the status bar, so work out what is covered from
+  // the gap between the window and the form rather than padding blindly.
+  try
+    Decor := TJDTView.Wrap(
+      (TAndroidHelper.Activity.getWindow.getDecorView as ILocalObject).GetObjectID);
+    if Decor = nil then
+      Exit;
+    Insets := Decor.getRootWindowInsets;
+    if Insets = nil then
+      Exit; // not attached yet, the timer tries again
+    if not TPlatformServices.Current.SupportsPlatformService(
+      IFMXScreenService, ScreenSvc) then
+      Exit;
+    Scale := ScreenSvc.GetScreenScale;
+    if Scale <= 0 then
+      Scale := 1;
+
+    DecorH := Decor.getHeight / Scale;  // whole window, in form units
+    FormH := Height;
+    if (DecorH <= 0) or (FormH <= 0) then
+      Exit;
+    TopIn := Insets.getSystemWindowInsetTop / Scale;
+    BotIn := Insets.getSystemWindowInsetBottom / Scale;
+
+    // Window space the form doesn't use is space the bars can take
+    // without covering anything.
+    Gap := DecorH - FormH;
+    if Gap < 0 then
+      Gap := 0;
+    Covered := TopIn + BotIn - Gap;
+    if Covered < 0 then
+      Covered := 0;
+    PadBot := BotIn;
+    if PadBot > Covered then
+      PadBot := Covered;
+    PadTop := Covered - PadBot;
+
+    if (Abs(Padding.Top - PadTop) > 0.5) or
+      (Abs(Padding.Bottom - PadBot) > 0.5) then
+    begin
+      Padding.Top := Round(PadTop);
+      Padding.Bottom := Round(PadBot);
+    end;
+  except
+    // never let a JNI problem stop the app; worst case the bar overlaps
+  end;
+{$ENDIF}
 end;
 
 procedure TfrmMain.FitDesktopWindow;
