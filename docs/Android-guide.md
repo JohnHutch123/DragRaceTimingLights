@@ -64,8 +64,9 @@ Everything runs from RAD Studio on your Windows PC.
    New personal accounts must run a **closed test with at least 12 testers for 14 days**
    before they can publish to everyone.
 2. **Signing key (keystore)**: Project > Options > Deployment > Provisioning,
-   Target **Android 64-bit**, Build type **Application Store**. Click **New Keystore**,
-   fill it in, and **back up the .keystore file and passwords**. Losing them means you
+   Target **Android 64-bit**, Build type **Application Store**. Make the keystore with
+   keytool (Delphi's New Keystore wizard won't take the alias password; see `PlayStore-guide.md` step 4),
+   select it, and **back up the .keystore file and passwords**. Losing them means you
    can't update the app (Play App Signing can reset an upload key, but it is a hassle).
 3. Project > Options > Building > Delphi Compiler, **Release** config, Android 64-bit:
    make sure **Generate Android App Bundle file (arm64 + arm)** is on. Play wants an `.aab`.
