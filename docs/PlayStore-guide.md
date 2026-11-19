@@ -1,4 +1,4 @@
-# Publishing Drag Tree to Google Play (Delphi 12 / RAD Studio)
+# Publishing Drag Tree to Google Play (RAD Studio 12 / 13)
 
 Step-by-step guide for getting the Delphi FireMonkey app **Drag Tree**
 (`com.johnhutch123.DragTree`) onto the Google Play Store.
@@ -95,24 +95,51 @@ Do these in **Project > Options**, with configuration **Release** and platform
 
 ## 4. Make the upload keystore (once, and back it up)
 
-Google uses **Play App Signing**: Google holds the key that signs the app phones install,
-and you sign each upload with your own **upload key**. RAD Studio makes that key for you.
+**What a keystore is:** a small password-protected file (`.keystore`) holding your
+private **upload key**. Every `.aab` you send to Google must be signed with it, so Google
+knows the upload really came from you. You make it yourself in RAD Studio; Google doesn't
+give you one. Make it **once** and use the same file for every future upload.
 
-1. Project > Options > **Deployment > Provisioning**.
-2. Target: **Android 64-bit**, Build type: **Android 64-bit - Application Store**
-   (pick it in the drop-down at the top).
-3. Click **Create Keystore** (the button next to *KeyStore file*). Fill in:
-   - **Keystore file:** somewhere outside the project folder, e.g.
-     `C:\Users\John\Keys\dragtree-upload.keystore`. Don't commit it to GitHub.
-   - **Keystore password**, **Alias** (e.g. `dragtree`), **Alias password**.
-   - **Validity:** 50 years. Google requires a key valid until at least 2033.
-   - Name / organisation / country: your own details.
-4. Repeat the Provisioning step for **Android 32-bit - Application Store**, pointing at the
-   **same** keystore file.
-5. **Back up the keystore file and both passwords** (password manager plus a copy on a USB
-   stick or cloud drive). If you lose the upload key, Google can reset it, but it takes a
-   support request and a few days. If you lose it before turning on Play App Signing, you
-   can never update the app.
+Google uses **Play App Signing**: Google keeps a separate *app signing key* that signs what
+phones install, and your upload key only proves who sent the bundle. On your first upload
+Play Console asks about this; accept the default (*Let Google manage and protect your app
+signing key*).
+
+### 4a. Create a new keystore
+
+1. Open the project, then **Project > Options > Deployment > Provisioning**.
+2. At the top, set **Target** to **All configurations - Android 64-bit platform** and
+   **Build Type** to **Android 64-bit - Application Store**. The keystore fields only appear
+   for the *Application Store* build type (Development builds use Delphi's debug key).
+3. Click **New Keystore...**. The *Create a New Keystore* wizard opens.
+   - **Page 1, keystore file:** choose a path *outside* the project folder, e.g.
+     `C:\Users\John\Keys\dragtree-upload.keystore`, and type a **keystore password**
+     (twice). Never commit this file to GitHub.
+   - **Page 2, the key inside it (alias):** **Alias** `dragtree`, an **alias password**
+     (can be the same as the keystore password), **Validity** `50` years (Google requires a
+     key valid until at least 2033), then your name, organisation (your name is fine),
+     city, state and two-letter country code (e.g. `AU`, `GB`, `US`).
+   - Click **Finish**. Delphi fills in *KeyStore File*, *KeyStore Password*, *Alias* and
+     *Alias Password* on the Provisioning page for you.
+4. Change **Build Type** to **Android 32-bit - Application Store** and point it at the
+   **same** file: click the **...** button next to *KeyStore File*, pick
+   `dragtree-upload.keystore`, then type the keystore password, choose the alias `dragtree`
+   and type the alias password.
+5. Click **Save**.
+
+### 4b. Select an existing keystore (new PC, or the fields went blank)
+
+Same page and build type as above, but instead of *New Keystore...* click **...** next to
+*KeyStore File*, browse to your saved `.keystore`, then type the keystore password, alias
+and alias password. You can also set it once for every project under
+**Tools > Options > Deployment > Provisioning** (Android, Application Store).
+
+### 4c. Back it up
+
+Copy the `.keystore` file **and both passwords** somewhere safe (password manager plus a
+USB stick or cloud drive). If you lose the upload key, Google can reset it from
+**Play Console > Test and release > App integrity > Upload key reset**, but it takes a
+support request and a few days. You can't recover the passwords from the file.
 
 ## 5. Version numbers
 
@@ -147,6 +174,13 @@ If it says "debuggable", you built Debug or the Development build type; Play rej
 1. Play Console > **Create app**.
    - App name: **Drag Tree** (up to 30 characters; you could use
      *Drag Tree - Reaction Trainer* if the plain name is taken).
+   - **Package name** (if asked): type **`com.johnhutch123.DragTree`** exactly, capital
+     D and T included. This is the app's permanent ID on Google Play (Android calls it the
+     *application ID*). It isn't something Google gives you: it comes from your Delphi
+     project, **Project > Options > Application > Version Info > `package`**, which this
+     project sets to `com.johnhutch123.$(MSBuildProjectName)`, i.e.
+     `com.johnhutch123.DragTree`. Whatever you type here must match the uploaded `.aab`
+     exactly, and it can never be changed after the app is created.
    - Default language: English (United Kingdom or United States).
    - App or game: **App** (or Game; *App* with category **Sports** fits a trainer best).
    - Free or paid: **Free**. You can't switch a free app to paid later.
