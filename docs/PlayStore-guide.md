@@ -105,34 +105,52 @@ phones install, and your upload key only proves who sent the bundle. On your fir
 Play Console asks about this; accept the default (*Let Google manage and protect your app
 signing key*).
 
-### 4a. Create a new keystore
+### 4a. Create the keystore with keytool (recommended)
+
+RAD Studio's **New Keystore...** wizard has a known bug: on the alias page you can't type the
+alias password, so the wizard can't finish. Make the keystore with **keytool** instead. It's
+the Java tool Delphi's own wizard runs behind the scenes, and it's already installed with
+RAD Studio's Android support.
+
+1. **Find keytool.** In RAD Studio: **Tools > Options > Deployment > SDK Manager**, select your
+   Android SDK, open the **Java** tab and copy the **Keytool location**. It's usually something
+   like `C:\Program Files\Eclipse Adoptium\jdk-17.0.x-hotspot\bin\keytool.exe`.
+2. **Make a folder for keys** outside the project, e.g. `C:\Users\John\Keys`
+   (never inside the GitHub folder).
+3. **Open Command Prompt** (Start, type `cmd`) and run this, using your own keytool path and
+   all on one line:
+
+   ```
+   "C:\Program Files\Eclipse Adoptium\jdk-17.0.x-hotspot\bin\keytool.exe" -genkeypair -v -keystore "C:\Users\John\Keys\dragtree-upload.keystore" -alias dragtree -keyalg RSA -keysize 2048 -validity 18250
+   ```
+
+   - It asks for a **keystore password** (twice). Typing shows nothing on screen; that's normal.
+   - Then your name, organisational unit, organisation (your name is fine), city, state and
+     two-letter country code (e.g. `AU`, `GB`, `US`). Type `yes` to confirm.
+   - If it asks for a separate key password, press **Enter** to use the same one.
+     Newer Java versions always use the keystore password for the key as well.
+     **So the keystore password and the alias password are the same.**
+   - `-validity 18250` is 50 years (Google needs the key valid until at least 2033).
+4. **Check it worked** (optional): run the same keytool path with
+   `-list -v -keystore "C:\Users\John\Keys\dragtree-upload.keystore"` and enter the password.
+   You should see `Alias name: dragtree`.
+
+### 4b. Select the keystore in RAD Studio
 
 1. Open the project, then **Project > Options > Deployment > Provisioning**.
 2. At the top, set **Target** to **All configurations - Android 64-bit platform** and
    **Build Type** to **Android 64-bit - Application Store**. The keystore fields only appear
    for the *Application Store* build type (Development builds use Delphi's debug key).
-3. Click **New Keystore...**. The *Create a New Keystore* wizard opens.
-   - **Page 1, keystore file:** choose a path *outside* the project folder, e.g.
-     `C:\Users\John\Keys\dragtree-upload.keystore`, and type a **keystore password**
-     (twice). Never commit this file to GitHub.
-   - **Page 2, the key inside it (alias):** **Alias** `dragtree`, an **alias password**
-     (can be the same as the keystore password), **Validity** `50` years (Google requires a
-     key valid until at least 2033), then your name, organisation (your name is fine),
-     city, state and two-letter country code (e.g. `AU`, `GB`, `US`).
-   - Click **Finish**. Delphi fills in *KeyStore File*, *KeyStore Password*, *Alias* and
-     *Alias Password* on the Provisioning page for you.
-4. Change **Build Type** to **Android 32-bit - Application Store** and point it at the
-   **same** file: click the **...** button next to *KeyStore File*, pick
-   `dragtree-upload.keystore`, then type the keystore password, choose the alias `dragtree`
-   and type the alias password.
-5. Click **Save**.
+3. Click **...** next to *KeyStore File* and pick `dragtree-upload.keystore`.
+4. Type the **KeyStore Password**, choose the alias **dragtree**, and type the
+   **Alias Password**, which is the **same password** as the keystore.
+5. Change **Build Type** to **Android 32-bit - Application Store** and repeat steps 3 and 4
+   with the same file.
+6. Click **Save**.
 
-### 4b. Select an existing keystore (new PC, or the fields went blank)
-
-Same page and build type as above, but instead of *New Keystore...* click **...** next to
-*KeyStore File*, browse to your saved `.keystore`, then type the keystore password, alias
-and alias password. You can also set it once for every project under
+You can also set the keystore once for every project under
 **Tools > Options > Deployment > Provisioning** (Android, Application Store).
+Do the same on a new PC: copy the `.keystore` file across and select it as above.
 
 ### 4c. Back it up
 
