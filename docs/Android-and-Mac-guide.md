@@ -91,9 +91,52 @@ upgrades the project.
 
 ## 1.5 Publishing
 
-See `PlayStore-guide.md`. In short: an upload keystore (backed up), Release +
-**Application Store** build producing an `.aab`, a closed test with 12 testers for 14 days,
-then production. The old target SDK blocker is gone now that the project targets 36.
+Full details are in `PlayStore-guide.md`. These are the steps that tripped us up.
+
+### 1.5.1 Package name
+
+Play Console's **Create app** asks for a **Package name**. Type **`com.johnhutch123.DragTree`**
+exactly (capital D and T). It comes from Project > Options > Application > Version Info >
+`package` (`com.johnhutch123.$(MSBuildProjectName)`), must match the uploaded `.aab`, and can
+never be changed after the app is created.
+
+### 1.5.2 Upload keystore (make it with keytool)
+
+The keystore is a password-protected file holding your upload key; every `.aab` is signed
+with it. RAD Studio's **New Keystore...** wizard has a bug where the alias password can't be
+typed, so make the keystore on the command line instead:
+
+1. Find keytool: **Tools > Options > Deployment > SDK Manager**, your Android SDK,
+   **Java** tab, **Keytool location**.
+2. Make a folder outside the project, e.g. `D:\AndroidKeyStore`.
+3. In Command Prompt, on one line (use your own keytool path):
+
+   ```
+   "C:\path\to\keytool.exe" -genkeypair -v -keystore "D:\AndroidKeyStore\DragTreeKeyStore.keystore" -alias dragtree -keyalg RSA -keysize 2048 -validity 18250
+   ```
+
+   Type a password (nothing shows while typing), your name, city and two-letter country code,
+   then `yes`. If asked for a key password, press Enter. **The keystore password and alias
+   password are the same.** `-validity 18250` is 50 years.
+4. In RAD Studio: **Project > Options > Deployment > Provisioning**, Build Type
+   **Android 64-bit - Application Store**. Click **...** next to *KeyStore File*, pick the file,
+   type the password, choose alias `dragtree`, type the same password again. Repeat for
+   **Android 32-bit - Application Store**, then **Save**.
+5. Back the keystore file and password up somewhere other than this PC.
+
+### 1.5.3 Build the .aab: Build, then Deploy
+
+1. Project > Options > Building > Delphi Compiler, Android 64-bit: **Generate Android App
+   Bundle file (arm64 + arm)** is on.
+2. Projects panel: **Android 64-bit** active, configuration **Release** (its build type is
+   Application Store).
+3. **Project > Build**. This only compiles `libDragTree.so` into `Android64\Release\`;
+   **no `.aab` is made yet**, even though it says Success.
+4. **Project > Deploy DragTree**. This packages and signs the bundle.
+5. The file is `Android64\Release\DragTree\bin\DragTree.aab`. Upload that to Play Console.
+
+Remember to raise `versionCode` in Version Info before every new upload. After that: a closed
+test with 12 testers for 14 days, then production (see `PlayStore-guide.md`).
 
 ## 1.6 Android problems and fixes
 
@@ -106,6 +149,10 @@ then production. The old target SDK blocker is gone now that the project targets
 | Bottom buttons hidden under the navigation bar | You are running a build without PR #21. Pull main and rebuild. If it still happens, tell me the phone model and Android version |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | An older build was signed differently. Uninstall the app from the phone and run again |
 | Build fails, no Java / JDK not found | Install Temurin JDK 17 and set it in SDK Manager (step 1.1.3) |
+| Build says Success but there's no `.aab` | Build only compiles. Run **Project > Deploy DragTree** (step 1.5.3) |
+| New Keystore wizard won't accept the alias password | Known RAD Studio bug. Make the keystore with keytool and select it (step 1.5.2) |
+| Play says the package name doesn't match | The `.aab` and Create app must both use `com.johnhutch123.DragTree` (step 1.5.1) |
+| Play says the version code is already used | Raise `versionCode` in Version Info, then Build and Deploy again |
 | SDK Manager red warnings | Re-run Tools > Manage Platforms > Android, or fix the paths |
 | Buttons look grey or disabled | Old MainForm from before PR #9. Pull main: buttons are now made in code |
 | Pedals don't all register | Some cheap phones report only 2 touches. Set Transmission and Throttle to Auto in Settings so only the brake pad is needed |
