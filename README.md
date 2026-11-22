@@ -10,6 +10,19 @@ Tap **Settings** to choose:
 - **Tree: Pro / Sportsman.** Pro lights all three ambers together with the
   green 0.400 s later. Sportsman (full tree) lights the ambers one after
   another 0.500 s apart, with the green 0.500 s after the last one.
+- **Tree speed** (new in 1.1). **NHRA** uses the times above. Tap to step
+  through faster (or slower) amber times: 0.500, 0.450, 0.400, 0.350, 0.300,
+  0.250, 0.200 and 0.150 s. On a Pro tree that is the time from the ambers to
+  the green; on a Sportsman tree it is the gap between each bulb.
+- **Start delay** (new in 1.1). How long the tree waits once both lanes are
+  staged: **Normal** 0.8 to 3.0 s, or **Quick** 0.3 to 1.2 s.
+- **Handicap (dial-in)** (new in 1.1). Bracket racing: type a dial-in (the
+  time you expect your car to run, such as 12.50) for **You** and for the
+  **Other** lane. The slower car (bigger dial-in) gets its tree first and the
+  faster car's tree is held back by the difference, so if both cars run dead
+  on their dial-ins they reach the line together. The verdict then says if you
+  won and by how much, which comes down to the better reaction time; a red
+  light loses.
 - **Lane: Left / Right.** Your lane is marked **YOU** in blue on the tree, and
   your car is the blue one.
 - **Staging: Auto / Manual.** Auto rolls your car into stage for you. In
@@ -40,7 +53,8 @@ A run:
      or the engine stalls). Once staged, keep the clutch in and take the right
      finger off the brake and onto the **THROTTLE**.
 3. Once both lanes are staged and you are holding the car, the tree starts
-   after a random wait of 0.8 to 3.0 s.
+   after a random wait (see Start delay). With handicap on, the two lanes'
+   trees start at different times.
 4. Launch by letting the car go: release the brake (automatic) or drop the
    clutch (manual). With an automatic, launching with the throttle closed bogs
    the car. With a manual, dropping the clutch with the brake still on or no
@@ -58,7 +72,8 @@ let the car go:
 
 When you red-light, your red bulb lights and the tree carries on for the
 other lane. History marks Sportsman runs with **S**, red lights with **R** and
-bogged launches with **B**. Your settings are saved between sessions.
+bogged launches with **B**, and handicap wins and losses with **W** and **L**.
+Your settings are saved between sessions.
 
 Buttons: **Start** runs the tree, **Stop** aborts a run, **Reset** clears the
 lights for the next run, **Clear** wipes the history and stats.

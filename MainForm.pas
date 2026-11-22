@@ -13,6 +13,13 @@ unit MainForm;
                 Pro tree:       all three ambers together, green 0.400 s later
                 Sportsman tree: ambers one after another 0.500 s apart,
                                 green 0.500 s after the last amber
+              Those are the NHRA timings. Settings > Tree speed swaps them
+              for a faster (or slower) amber time, and Start delay picks a
+              quicker wait after staging.
+  Handicap (bracket) racing: each car has a dial-in, the time it expects to
+  run. The slower car (bigger dial-in) gets its tree first; the faster car's
+  tree is held back by the difference, so if both run on their dial-in they
+  reach the finish line together and the better reaction time wins.
   You launch by letting the car go: release the brake (automatic gearbox) or
   drop the clutch (manual gearbox). Never more than two pedals at once, like
   two feet.
@@ -40,13 +47,23 @@ uses
   System.Diagnostics, System.Generics.Collections, System.IOUtils,
   System.IniFiles,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Objects, FMX.StdCtrls,
-  FMX.Layouts, FMX.Controls.Presentation;
+  FMX.Layouts, FMX.Controls.Presentation, FMX.Edit;
 
 const
-  ProAmberMs: Double = 400.0;   // Pro tree: ambers to green
-  SportAmberMs: Double = 500.0; // Sportsman tree: gap between each amber and green
-  AutoStartMinMs = 800;     // random wait after both lanes are staged
-  AutoStartRandMs = 2200;
+  ProAmberMs: Double = 400.0;   // NHRA Pro tree: ambers to green
+  SportAmberMs: Double = 500.0; // NHRA Sportsman tree: gap between each amber and green
+  // Settings > Tree speed. 0 = the NHRA time for the tree in use (above),
+  // anything else is the amber time in ms for either tree.
+  TreeSpeedsMs: array[0..8] of Integer = (0, 500, 450, 400, 350, 300, 250, 200, 150);
+  // Settings > Start delay: random wait after both lanes are staged
+  StartDelayNames: array[0..1] of string = ('Normal 0.8-3.0 s', 'Quick 0.3-1.2 s');
+  StartDelayMinMs: array[0..1] of Integer = (800, 300);
+  StartDelayRandMs: array[0..1] of Integer = (2200, 900);
+  // dial-ins in hundredths of a second
+  MinDialIn = 200;   // 2.00 s
+  MaxDialIn = 9999;  // 99.99 s
+  DefaultYourDial = 1250;
+  DefaultOtherDial = 1180;
   HistoryLines = 20;
 
   // engine, for the rev bar and stalling (manual gearbox)
@@ -74,7 +91,8 @@ type
   TTreePhase = (tpIdle, tpStaging, tpWaiting, tpCountdown, tpGreen);
   TPedal = (pdClutch, pdBrake, pdThrottle);
   TPedals = set of TPedal;
-  TSetting = (stTree, stLane, stStaging, stTrans, stThrottle);
+  TSetting = (stTree, stSpeed, stDelay, stLane, stStaging, stTrans,
+    stThrottle, stHandicap);
 
   TRunResult = record
     ReactionMs: Double;
@@ -82,6 +100,9 @@ type
     BeforeTree: Boolean;   // left before the countdown had even started
     Bogged: Boolean;       // launched with the throttle closed
     Mode: TTreeMode;
+    Handicap: Boolean;     // a handicap (dial-in) race
+    Won: Boolean;          // handicap: beat the other lane to the finish
+    MarginMs: Double;      // handicap: by how much (both on their dial-in)
   end;
 
   TCar = record
@@ -160,10 +181,16 @@ type
     FTransMode: TTransMode;
     FThrottleMode: TThrottleMode;
     FUserLane: Integer;          // 0 = left, 1 = right
+    FTreeSpeed: Integer;         // index into TreeSpeedsMs
+    FStartDelay: Integer;        // index into StartDelayNames
+    FHandicap: Boolean;          // dial-in (bracket) racing
+    FYourDial: Integer;          // dial-ins, hundredths of a second
+    FOtherDial: Integer;
     FMultiTouch: Boolean;        // false: brake only
     FPhase: TTreePhase;
     FRunning: Boolean;
-    FCountdownMs: Double;        // when the first amber lights
+    FCountdownMs: Double;        // when the first tree starts
+    FLaneStartMs: array[0..1] of Double; // when each lane's first amber lights
     FCars: array[0..1] of TCar;  // indexed by lane
     FRedLit: Boolean;            // red bulb in the user's lane
     FUserLaunched: Boolean;
@@ -198,17 +225,24 @@ type
     // settings screen
     FSettingsPanel: TRectangle;
     FSettingButtons: array[TSetting] of TTapButton;
+    FDialRow: TLayout;
+    FDialLabels: array[0..1] of TLabel;
+    FDialEdits: array[0..1] of TEdit; // 0 = you, 1 = other lane
 
     // Android system bars (status bar, navigation bar), see ApplySystemInsets
     FInsetTimer: TTimer;
     FInsetTries: Integer;
 
     function NowMs: Double;
-    function GreenDueMs: Double;
+    function AmberGapMs: Double;
+    function TreeLengthMs: Double;
+    function GreenDueMs(Lane: Integer): Double;
+    function LastGreenMs: Double;
+    function HandicapDelayMs(Lane: Integer): Double;
     function OppLane: Integer;
     function PreStageLit(Lane: Integer): Boolean;
     function StageLit(Lane: Integer): Boolean;
-    function AmberLit(Index: Integer; T: Double): Boolean;
+    function AmberLit(Lane, Index: Integer; T: Double): Boolean;
     function GreenLit(Lane: Integer; T: Double): Boolean;
     function EffTrans: TTransMode;
     function EffThrottle: TThrottleMode;
@@ -228,6 +262,8 @@ type
     procedure SettingButtonClick(Sender: TObject);
     procedure SettingsDoneClick(Sender: TObject);
     procedure UpdateSettingsTexts;
+    function TreeSpeedText: string;
+    procedure ReadDialEdits;
     procedure PadMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Single);
     procedure PadMouseUp(Sender: TObject; Button: TMouseButton;
@@ -355,6 +391,23 @@ end;
 function FormatSecs(Ms: Double): string;
 begin
   Result := Format('%.3f', [Ms / 1000], TFormatSettings.Invariant);
+end;
+
+function FormatDial(Hundredths: Integer): string;
+begin
+  Result := Format('%.2f', [Hundredths / 100], TFormatSettings.Invariant);
+end;
+
+function ParseDial(const S: string; Default: Integer): Integer;
+var
+  V: Double;
+begin
+  // accepts 12.5, 12.50 or 12,50
+  if TryStrToFloat(StringReplace(Trim(S), ',', '.', [rfReplaceAll]), V,
+    TFormatSettings.Invariant) then
+    Result := EnsureRange(Round(V * 100), MinDialIn, MaxDialIn)
+  else
+    Result := Default;
 end;
 
 function DimColor(C: TAlphaColor; F: Single): TAlphaColor;
@@ -608,6 +661,11 @@ begin
   FTransMode := trAuto;
   FThrottleMode := thAuto;
   FUserLane := 0;
+  FTreeSpeed := 0;
+  FStartDelay := 0;
+  FHandicap := False;
+  FYourDial := DefaultYourDial;
+  FOtherDial := DefaultOtherDial;
   FileName := SettingsFile;
   if (FileName = '') or not System.IOUtils.TFile.Exists(FileName) then
     Exit;
@@ -623,6 +681,15 @@ begin
       FThrottleMode := TThrottleMode(EnsureRange(Ini.ReadInteger('Options', 'Throttle', 0),
         Ord(Low(TThrottleMode)), Ord(High(TThrottleMode))));
       FUserLane := EnsureRange(Ini.ReadInteger('Options', 'Lane', 0), 0, 1);
+      FTreeSpeed := EnsureRange(Ini.ReadInteger('Options', 'TreeSpeed', 0),
+        Low(TreeSpeedsMs), High(TreeSpeedsMs));
+      FStartDelay := EnsureRange(Ini.ReadInteger('Options', 'StartDelay', 0),
+        Low(StartDelayNames), High(StartDelayNames));
+      FHandicap := Ini.ReadBool('Options', 'Handicap', False);
+      FYourDial := EnsureRange(Ini.ReadInteger('Options', 'YourDial',
+        DefaultYourDial), MinDialIn, MaxDialIn);
+      FOtherDial := EnsureRange(Ini.ReadInteger('Options', 'OtherDial',
+        DefaultOtherDial), MinDialIn, MaxDialIn);
     finally
       Ini.Free;
     end;
@@ -647,6 +714,11 @@ begin
       Ini.WriteInteger('Options', 'Trans', Ord(FTransMode));
       Ini.WriteInteger('Options', 'Throttle', Ord(FThrottleMode));
       Ini.WriteInteger('Options', 'Lane', FUserLane);
+      Ini.WriteInteger('Options', 'TreeSpeed', FTreeSpeed);
+      Ini.WriteInteger('Options', 'StartDelay', FStartDelay);
+      Ini.WriteBool('Options', 'Handicap', FHandicap);
+      Ini.WriteInteger('Options', 'YourDial', FYourDial);
+      Ini.WriteInteger('Options', 'OtherDial', FOtherDial);
       Ini.UpdateFile;
     finally
       Ini.Free;
@@ -666,12 +738,58 @@ begin
   Result := 1 - FUserLane;
 end;
 
-function TfrmMain.GreenDueMs: Double;
+function TfrmMain.AmberGapMs: Double;
 begin
-  if FTreeMode = tmPro then
-    Result := FCountdownMs + ProAmberMs
+  // Pro: how long the ambers are on before the green.
+  // Sportsman: the time between one bulb and the next.
+  if TreeSpeedsMs[FTreeSpeed] > 0 then
+    Result := TreeSpeedsMs[FTreeSpeed]
+  else if FTreeMode = tmPro then
+    Result := ProAmberMs
   else
-    Result := FCountdownMs + 3 * SportAmberMs;
+    Result := SportAmberMs;
+end;
+
+function TfrmMain.TreeLengthMs: Double;
+begin
+  // first amber to green
+  if FTreeMode = tmPro then
+    Result := AmberGapMs
+  else
+    Result := 3 * AmberGapMs;
+end;
+
+function TfrmMain.HandicapDelayMs(Lane: Integer): Double;
+var
+  Mine, Theirs: Integer;
+begin
+  // The car with the bigger dial-in (the slower one) gets its tree first;
+  // the faster car waits for the difference.
+  Result := 0;
+  if not FHandicap then
+    Exit;
+  if Lane = FUserLane then
+  begin
+    Mine := FYourDial;
+    Theirs := FOtherDial;
+  end
+  else
+  begin
+    Mine := FOtherDial;
+    Theirs := FYourDial;
+  end;
+  if Mine < Theirs then
+    Result := (Theirs - Mine) * 10.0; // hundredths of a second to ms
+end;
+
+function TfrmMain.GreenDueMs(Lane: Integer): Double;
+begin
+  Result := FLaneStartMs[Lane] + TreeLengthMs;
+end;
+
+function TfrmMain.LastGreenMs: Double;
+begin
+  Result := Max(GreenDueMs(0), GreenDueMs(1));
 end;
 
 function TfrmMain.PreStageLit(Lane: Integer): Boolean;
@@ -684,7 +802,7 @@ begin
   Result := (FCars[Lane].Pos >= StageBeamIn) and (FCars[Lane].Pos < TooFarIn);
 end;
 
-function TfrmMain.AmberLit(Index: Integer; T: Double): Boolean;
+function TfrmMain.AmberLit(Lane, Index: Integer; T: Double): Boolean;
 var
   Start: Double;
 begin
@@ -692,18 +810,18 @@ begin
   if not (FPhase in [tpCountdown, tpGreen]) then
     Exit;
   if FTreeMode = tmPro then
-    Result := (T >= FCountdownMs) and (T < FCountdownMs + ProAmberMs)
+    Result := (T >= FLaneStartMs[Lane]) and (T < GreenDueMs(Lane))
   else
   begin
-    // Sportsman: top to bottom, each one on for 0.5 s
-    Start := FCountdownMs + Index * SportAmberMs;
-    Result := (T >= Start) and (T < Start + SportAmberMs);
+    // Sportsman: top to bottom, each one on for one amber time
+    Start := FLaneStartMs[Lane] + Index * AmberGapMs;
+    Result := (T >= Start) and (T < Start + AmberGapMs);
   end;
 end;
 
 function TfrmMain.GreenLit(Lane: Integer; T: Double): Boolean;
 begin
-  Result := (FPhase in [tpCountdown, tpGreen]) and (T >= GreenDueMs);
+  Result := (FPhase in [tpCountdown, tpGreen]) and (T >= GreenDueMs(Lane));
   if (Lane = FUserLane) and FRedLit then
     Result := False;
 end;
@@ -1026,12 +1144,13 @@ end;
 
 procedure TfrmMain.CreateSettingsPanel;
 const
-  RowH = 52;
+  RowH = 46;
 var
   Box: TLayout;
   Title: TLabel;
   Done: TTapButton;
   S: TSetting;
+  I: Integer;
 begin
   FSettingsPanel := TRectangle.Create(Self);
   FSettingsPanel.Parent := Self;
@@ -1046,7 +1165,8 @@ begin
   Box.Parent := FSettingsPanel;
   Box.Align := TAlignLayout.Center;
   Box.Width := 300;
-  Box.Height := RowH * (Ord(High(TSetting)) + 3) + 16;
+  // title, one row per setting, the dial-in row, Done
+  Box.Height := RowH * (Ord(High(TSetting)) + 4) + 16;
 
   Title := TLabel.Create(Self);
   Title.Parent := Box;
@@ -1065,13 +1185,66 @@ begin
     FSettingButtons[S].Tag := Ord(S);
   end;
 
+  // handicap dial-ins: "You [12.50]  Other [11.80]"
+  FDialRow := TLayout.Create(Self);
+  FDialRow.Parent := Box;
+  FDialRow.Align := TAlignLayout.Top;
+  FDialRow.Position.Y := RowH * (Ord(High(TSetting)) + 2);
+  FDialRow.Height := RowH - 8;
+  FDialRow.Margins.Bottom := 8;
+  for I := 0 to 1 do
+  begin
+    FDialLabels[I] := TLabel.Create(Self);
+    FDialLabels[I].Parent := FDialRow;
+    FDialLabels[I].SetBounds(I * 150, 0, 64, RowH - 8);
+    if I = 0 then
+      FDialLabels[I].Text := 'You'
+    else
+      FDialLabels[I].Text := 'Other';
+    StyleLabel(FDialLabels[I], 15, clrText, True, TTextAlign.Trailing);
+    FDialLabels[I].TextSettings.VertAlign := TTextAlign.Center;
+
+    FDialEdits[I] := TEdit.Create(Self);
+    FDialEdits[I].Parent := FDialRow;
+    FDialEdits[I].SetBounds(I * 150 + 70, 4, 76, RowH - 16);
+    FDialEdits[I].KeyboardType := TVirtualKeyboardType.DecimalNumberPad;
+    FDialEdits[I].ReturnKeyType := TReturnKeyType.Done;
+    FDialEdits[I].MaxLength := 6;
+    FDialEdits[I].TextSettings.HorzAlign := TTextAlign.Center;
+  end;
+  FDialEdits[0].Text := FormatDial(FYourDial);
+  FDialEdits[1].Text := FormatDial(FOtherDial);
+
   Done := MakeButton(Box, 'Done', clrBtnSettings, SettingsDoneClick);
   Done.Align := TAlignLayout.Top;
-  Done.Position.Y := RowH * (Ord(High(TSetting)) + 2);
+  Done.Position.Y := RowH * (Ord(High(TSetting)) + 3);
   Done.Height := RowH - 8;
   Done.Margins.Top := 8;
 
   UpdateSettingsTexts;
+end;
+
+function TfrmMain.TreeSpeedText: string;
+begin
+  if TreeSpeedsMs[FTreeSpeed] = 0 then
+  begin
+    if FTreeMode = tmPro then
+      Result := 'NHRA 0.400 s'
+    else
+      Result := 'NHRA 0.500 s';
+  end
+  else
+    Result := FormatSecs(TreeSpeedsMs[FTreeSpeed]) + ' s';
+end;
+
+procedure TfrmMain.ReadDialEdits;
+begin
+  if FDialEdits[0] = nil then
+    Exit;
+  FYourDial := ParseDial(FDialEdits[0].Text, FYourDial);
+  FOtherDial := ParseDial(FDialEdits[1].Text, FOtherDial);
+  FDialEdits[0].Text := FormatDial(FYourDial);
+  FDialEdits[1].Text := FormatDial(FOtherDial);
 end;
 
 procedure TfrmMain.UpdateSettingsTexts;
@@ -1079,8 +1252,24 @@ const
   NeedsTouch = ' (needs multi-touch)';
 var
   Summary: string;
+  I: Integer;
 begin
   FSettingButtons[stTree].Text := 'Tree: ' + TreeNames[FTreeMode];
+  FSettingButtons[stSpeed].Text := 'Tree speed: ' + TreeSpeedText;
+  FSettingButtons[stDelay].Text := 'Start delay: ' + StartDelayNames[FStartDelay];
+  if FHandicap then
+    FSettingButtons[stHandicap].Text := 'Handicap (dial-in): On'
+  else
+    FSettingButtons[stHandicap].Text := 'Handicap (dial-in): Off';
+  if FDialEdits[0] <> nil then
+    for I := 0 to 1 do
+    begin
+      FDialEdits[I].Enabled := FHandicap;
+      if FHandicap then
+        FDialLabels[I].Opacity := 1
+      else
+        FDialLabels[I].Opacity := 0.4;
+    end;
   FSettingButtons[stLane].Text := 'Lane: ' + LaneNames[FUserLane];
   FSettingButtons[stStaging].Text := 'Staging: ' + StageNames[FStageMode];
   FSettingButtons[stTrans].Text := 'Transmission: ' + TransNames[EffTrans];
@@ -1093,13 +1282,17 @@ begin
   FSettingButtons[stTrans].Enabled := FMultiTouch;
   FSettingButtons[stThrottle].Enabled := FMultiTouch;
 
-  Summary := Format('%s tree, %s lane, %s staging', [TreeNames[FTreeMode],
-    LowerCase(LaneNames[FUserLane]), LowerCase(StageNames[FStageMode])]);
+  Summary := Format('%s tree %s, %s lane, %s staging', [TreeNames[FTreeMode],
+    TreeSpeedText, LowerCase(LaneNames[FUserLane]),
+    LowerCase(StageNames[FStageMode])]);
   if FMultiTouch then
     Summary := Summary + Format(', %s trans, %s throttle',
       [LowerCase(TransNames[EffTrans]), LowerCase(ThrottleNames[EffThrottle])])
   else
     Summary := Summary + ', brake only';
+  if FHandicap then
+    Summary := Summary + Format(', dial-in %s vs %s',
+      [FormatDial(FYourDial), FormatDial(FOtherDial)]);
   lblSummary.Text := Summary;
 end;
 
@@ -1108,6 +1301,18 @@ begin
   case TSetting(TComponent(Sender).Tag) of
     stTree:
       if FTreeMode = tmPro then FTreeMode := tmSportsman else FTreeMode := tmPro;
+    stSpeed:
+      if FTreeSpeed >= High(TreeSpeedsMs) then
+        FTreeSpeed := Low(TreeSpeedsMs)
+      else
+        Inc(FTreeSpeed);
+    stDelay:
+      if FStartDelay >= High(StartDelayNames) then
+        FStartDelay := Low(StartDelayNames)
+      else
+        Inc(FStartDelay);
+    stHandicap:
+      FHandicap := not FHandicap;
     stLane:
       FUserLane := 1 - FUserLane;
     stStaging:
@@ -1117,6 +1322,7 @@ begin
     stThrottle:
       if FThrottleMode = thAuto then FThrottleMode := thManual else FThrottleMode := thAuto;
   end;
+  ReadDialEdits;
   SaveSettings;
   UpdateSettingsTexts;
 end;
@@ -1132,6 +1338,10 @@ end;
 
 procedure TfrmMain.SettingsDoneClick(Sender: TObject);
 begin
+  // the dial-in boxes may still be being edited
+  Focused := nil;
+  ReadDialEdits;
+  SaveSettings;
   FSettingsPanel.Visible := False;
   // pedal set may have changed
   FTouchPedals := [];
@@ -1418,8 +1628,23 @@ begin
           and StageLit(Opp) and (FCars[Opp].Pos >= AutoStageIn) then
         begin
           FPhase := tpWaiting;
-          FCountdownMs := T + AutoStartMinMs + Random(AutoStartRandMs);
-          FCars[Opp].LaunchAtMs := GreenDueMs + 120 + Random(180);
+          FCountdownMs := T + StartDelayMinMs[FStartDelay]
+            + Random(StartDelayRandMs[FStartDelay]);
+          // handicap: the faster car's tree is held back
+          FLaneStartMs[FUserLane] := FCountdownMs + HandicapDelayMs(FUserLane);
+          FLaneStartMs[Opp] := FCountdownMs + HandicapDelayMs(Opp);
+          FCars[Opp].LaunchAtMs := GreenDueMs(Opp) + 120 + Random(180);
+          if FHandicap then
+          begin
+            if HandicapDelayMs(FUserLane) > 0 then
+              SetVerdict(Format('You start %s s after the other lane',
+                [FormatSecs(HandicapDelayMs(FUserLane))]), clrSubtle)
+            else if HandicapDelayMs(Opp) > 0 then
+              SetVerdict(Format('You start %s s before the other lane',
+                [FormatSecs(HandicapDelayMs(Opp))]), clrSubtle)
+            else
+              SetVerdict('Same dial-in: both trees together', clrSubtle);
+          end;
         end;
         UpdateHint;
       end;
@@ -1427,12 +1652,12 @@ begin
       if T >= FCountdownMs then
         FPhase := tpCountdown;
     tpCountdown:
-      if T >= GreenDueMs then
+      if T >= LastGreenMs then
         FPhase := tpGreen;
   end;
 
   // the other lane leaves on its own green
-  if (FPhase = tpGreen) and not FCars[Opp].Launched
+  if (FPhase in [tpCountdown, tpGreen]) and not FCars[Opp].Launched
     and (T >= FCars[Opp].LaunchAtMs) then
     FCars[Opp].Launched := True;
 
@@ -1516,10 +1741,16 @@ begin
   FCars[FUserLane].Launched := True;
   FBogged := not ThrottleOpen;
   R.Mode := FTreeMode;
-  R.BeforeTree := FPhase = tpWaiting;
-  R.ReactionMs := ReleaseMs - GreenDueMs;
+  R.BeforeTree := ReleaseMs < FLaneStartMs[FUserLane];
+  R.ReactionMs := ReleaseMs - GreenDueMs(FUserLane);
   R.Foul := R.ReactionMs < 0;
   R.Bogged := FBogged;
+  // Handicap: if both cars run dead on their dial-in they cross the line
+  // together, so the gap at the finish is the difference in reaction time.
+  // A red light loses.
+  R.Handicap := FHandicap;
+  R.MarginMs := (FCars[OppLane].LaunchAtMs - GreenDueMs(OppLane)) - R.ReactionMs;
+  R.Won := FHandicap and not R.Foul and not R.Bogged and (R.MarginMs > 0);
 
   // A red light lights your red bulb; the tree carries on for the other lane
   if R.Foul then
@@ -1568,6 +1799,17 @@ begin
   end;
   if R.Bogged then
     Verdict := Verdict + ' - bogged, no throttle';
+  if R.Handicap then
+  begin
+    if R.Won then
+      Verdict := Verdict + Format(' - WIN by %s s',
+        [FormatSecs(R.MarginMs)])
+    else if R.Foul or R.Bogged then
+      Verdict := Verdict + ' - LOSS'
+    else
+      Verdict := Verdict + Format(' - LOSS by %s s',
+        [FormatSecs(-R.MarginMs)]);
+  end;
   lblReaction.TextSettings.FontColor := Color;
   SetVerdict(Verdict, Color);
 end;
@@ -1665,6 +1907,13 @@ begin
         Lines.Append(' R');
       if R.Bogged then
         Lines.Append(' B');
+      if R.Handicap then
+      begin
+        if R.Won then
+          Lines.Append(' W')
+        else
+          Lines.Append(' L');
+      end;
       Lines.Append(sLineBreak);
       Dec(I);
     end;
@@ -1854,7 +2103,7 @@ begin
     Bulb(LaneX[Lane] + SmallR * 1.3, RowY(1), SmallR, clrStage, StageLit(Lane));
 
     for I := 0 to 2 do
-      Bulb(LaneX[Lane], RowY(2 + I), R, clrAmber, AmberLit(I, T));
+      Bulb(LaneX[Lane], RowY(2 + I), R, clrAmber, AmberLit(Lane, I, T));
 
     Bulb(LaneX[Lane], RowY(5), R, clrGreen, GreenLit(Lane, T));
     Bulb(LaneX[Lane], RowY(6), R, clrRed, (Lane = FUserLane) and FRedLit);
