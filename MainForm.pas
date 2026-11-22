@@ -1787,7 +1787,9 @@ var
   end;
 
   procedure Beam(CX: Single; Inches: Double; Lit: Boolean; const Name: string;
-    ShowName: Boolean);
+    ShowName, NameAbove: Boolean);
+  const
+    NameH = 13;
   var
     Y: Single;
   begin
@@ -1799,8 +1801,13 @@ var
       Canvas.Stroke.Color := TAlphaColor($FF8A8A8A);
     Canvas.Stroke.Thickness := 2;
     Canvas.DrawLine(PointF(CX - LaneW * 0.48, Y), PointF(CX + LaneW * 0.48, Y), 1);
+    // The two beams are only 7 inches apart, which can be closer than a line
+    // of text on a phone, so STAGE sits above its beam and PRE below its own.
     if ShowName then
-      LabelText(RectF(0, Y - 8, CX - LaneW * 0.48, Y + 8), Name, clrSubtle, 10);
+      if NameAbove then
+        LabelText(RectF(0, Y - NameH - 1, CX - LaneW * 0.48 - 2, Y - 1), Name, clrSubtle, 9)
+      else
+        LabelText(RectF(0, Y + 1, CX - LaneW * 0.48 - 2, Y + NameH + 1), Name, clrSubtle, 9);
   end;
 
 begin
@@ -1826,12 +1833,14 @@ begin
 
   for Lane := 0 to 1 do
   begin
-    // lane label: YOU in blue over your lane
+    // lane label: YOU in blue over your lane. Each label is centred on its
+    // lane and as wide as the space allows (0.19 W either side reaches the
+    // middle); a rect sized from the bulb radius clipped OTHER LANE on phones.
     if Lane = FUserLane then
-      LabelText(RectF(LaneX[Lane] - R * 2, 0, LaneX[Lane] + R * 2, LabelH),
+      LabelText(RectF(LaneX[Lane] - W * 0.19, 0, LaneX[Lane] + W * 0.19, LabelH),
         'YOU', clrYou, 15)
     else
-      LabelText(RectF(LaneX[Lane] - R * 2, 0, LaneX[Lane] + R * 2, LabelH),
+      LabelText(RectF(LaneX[Lane] - W * 0.19, 0, LaneX[Lane] + W * 0.19, LabelH),
         'OTHER LANE', clrSubtle, 11);
 
     Canvas.Fill.Kind := TBrushKind.Solid;
@@ -1879,8 +1888,8 @@ begin
       Canvas.FillRect(RectF(LaneX[Lane] - LaneW * 0.5, InchY(ViewFwdIn),
         LaneX[Lane] + LaneW * 0.5, InchY(TooFarIn)), 0, 0, AllCorners, 0.18);
 
-      Beam(LaneX[Lane], 0, PreStageLit(Lane), 'PRE', Lane = 0);
-      Beam(LaneX[Lane], StageBeamIn, StageLit(Lane), 'STAGE', Lane = 0);
+      Beam(LaneX[Lane], 0, PreStageLit(Lane), 'PRE', Lane = 0, False);
+      Beam(LaneX[Lane], StageBeamIn, StageLit(Lane), 'STAGE', Lane = 0, True);
 
       if Lane = FUserLane then
         DrawCar(LaneX[Lane], FCars[Lane].Pos, clrYou)
