@@ -11,6 +11,7 @@ change a colour or the layout, edit the script and run `python make_icons.py`.
 | Folder | What it is |
 |---|---|
 | `Android/` | Launcher icons 36, 48, 72, 96, 144, 192 (rounded square) |
+| `Android/Splash/` | Splash images 426x320, 470x320, 640x480, 960x720 (deployed as `splash_image.png`) |
 | `Android/Adaptive/` | Optional Android 8+ adaptive icon (layers + XML), see below |
 | `iOS/` | Every iPhone/iPad size Delphi 12 lists, plus the 1024 App Store icon. Square with no transparency, because iOS rounds the corners itself |
 | `macOS/` | `DragTree.icns` (Big Sur style rounded tile) and a 1024 PNG |
@@ -43,7 +44,12 @@ Leave **Use adaptive icon** unticked on the Icons page: the adaptive icon is
 deployed as plain files instead (see below), which the IDE never rewrites.
 The splash background colour is `#121212`, the app's own background, so
 Android 12+ shows the tree icon on dark grey at launch instead of white.
-The legacy splash image stays off, like the iPhone launch screen.
+The splash image (**Include splash image** ticked) uses
+`Icons\Android\Splash\SplashImage_426x320.png` ... `SplashImage_960x720.png`:
+the tree icon centred on a transparent canvas over the `#121212` background.
+Delphi 13 always deploys `splash_image_def.xml`, which points at
+`drawable/splash_image`, so these images must stay set or the Android build
+fails with "drawable/splash_image is missing".
 
 If the **Project > Deployment** `ic_launcher.png` rows ever go back to
 `FM_LauncherIcon_...`, click **Revert to default** there.

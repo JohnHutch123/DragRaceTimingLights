@@ -274,7 +274,7 @@ whatever they like, because that's their own text on their own phone.
 | Street/strip turbo | 600 kW | 1,500 kg | RWD, radials | 9.7 s |
 | Pro-mod style | 2,400 kW | 1,200 kg | RWD, slicks | 6.1 s |
 
-The model times are from `Tests/CarSimTest.dpr` (version 1.1). Before
+The model times are from `Tests/CarSimTest.dpr` (version 2.0). Before
 building, the targets came from the well-known Hale formula
 (ET = 5.825 x (lb / hp)^(1/3), trap mph = 234 x (hp / lb)^(1/3)), which is
 what the model should land near for a clean full-throttle run. That gives us a
@@ -397,7 +397,8 @@ both gearbox settings, and keeps manual shifting as an option to try later.
 ## 9. App Store and Play Store implications
 
 - **It's an update, not a new app.** Same bundle ID `com.johnhutch123.DragTree`;
-  bump the version (1.1.0) and build number.
+  bump the version and build number (cars and solo racing are 2.0.0, so
+  Bluetooth racing would be 2.1.0 or later).
 - **Privacy policy** (`docs/privacy-policy.md`) needs a line: "Race mode uses
   Bluetooth to talk directly to another phone nearby. Only race data (lane,
   tree timing, reaction and elapsed times, car settings, a device name) is exchanged, it never leaves
@@ -416,7 +417,7 @@ both gearbox settings, and keeps manual shifting as an option to try later.
   and Play needs target API 36 (see `docs/PlayStore-guide.md`). The race work
   is plain Delphi and should carry over to 13.2 unchanged.
 - Version 1.0 is in review now. Nothing here should hold that up; racing
-  goes in a later 1.1 update.
+  goes in a later update, after version 2.0.
 
 ## 10. Wi-Fi instead of Bluetooth?
 
@@ -447,8 +448,9 @@ can be tried at any time.
    against the rough times in section 6 using a small Windows console test.
    Car screen, race length setting, the track strip, time slips, win light,
    and the computer opponent driving a car. **This ships on its own as
-   version 1.1** (John, 18 Nov 2026); the Bluetooth phases follow in a later
-   update.
+   version 2.0** (John, 18 Nov 2026; renamed from 1.1 on 22 Nov 2026, when
+   1.1 became the tree speed and dial-in update); the Bluetooth phases follow
+   in a later update.
 2. **BLE spike (the risk).** A throwaway test form, outside the main app:
    one phone advertises, the other finds it, connects, and they echo
    messages and show round-trip times. Test all four combinations: iPhone
@@ -508,5 +510,6 @@ are signed 32-bit in 0.1 ms units (a "before the tree" foul can be several secon
   18 Nov 2026)
 - Presets as listed in section 6, including John's **twin turbo AWD sedan**
   (330 kW, 1,900 kg, AWD). (John, 18 Nov 2026)
-- **Cars and solo racing ship first as version 1.1**, before the Bluetooth
+- **Cars and solo racing ship first as version 2.0** (first planned as 1.1),
+  before the Bluetooth
   work. (John, 18 Nov 2026)
