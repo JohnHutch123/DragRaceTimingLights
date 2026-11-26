@@ -4,7 +4,7 @@ Step-by-step guide for getting the Delphi FireMonkey app **Drag Tree**
 (`com.johnhutch123.DragTree`) onto the Google Play Store.
 Checked against Google's published rules on 21 October 2026.
 
-For setting up the PC, the phone and test runs, see `Android-guide.md` first.
+For setting up the PC, the phone and test runs, see `Android-and-Mac-guide.md` (Chapter 1) first.
 This guide starts once the app runs on your phone.
 
 ## The short version
@@ -67,7 +67,7 @@ Check yours with **Help > About**.
    Android 16 phone, especially that the top and bottom of the screen are not
    hidden: Android 16 forces apps to draw edge to edge with no way to opt out.
 
-Either way, after the change run the full test list in `Android-guide.md` step 4 again.
+Either way, after the change run the full test list in `Android-and-Mac-guide.md` step 1.4 again.
 
 ### 16 KB page size
 
@@ -86,7 +86,7 @@ Do these in **Project > Options**, with configuration **Release** and platform
    **Untick them all.** Every permission you leave on must be explained to Google
    and shows on the store page, and some (location, phone) trigger extra reviews.
 2. **Application > Entitlement List:** untick everything (no AdMob, maps, billing, etc.).
-3. **Application > Orientation:** Portrait only (see `Android-guide.md` step 3).
+3. **Application > Orientation:** Portrait only (already set in code, see `Android-and-Mac-guide.md` step 1.3).
 4. **Application > Icons:** replace the Delphi flame icons with the Drag Tree icons.
    Play rejects nothing for the flame, but it looks unfinished.
 5. **Application > Version Info:** check `package=com.johnhutch123.DragTree` and
