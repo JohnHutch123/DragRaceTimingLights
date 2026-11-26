@@ -2,7 +2,7 @@
 
 Step-by-step guide for getting the Delphi FireMonkey app **Drag Tree**
 (`com.johnhutch123.DragTree`) onto the iPhone App Store.
-Checked against Apple's published rules on 26 October 2026.
+Checked against Apple's published rules on 26 October 2026; signing section rewritten 13 November 2026.
 
 For setting up Xcode, PAServer, certificates and running on your own iPhone, see
 `iPhone-and-Mac-setup.md` first. This guide starts once the app runs on your iPhone.
@@ -50,26 +50,100 @@ project settings, and they carry over to 13.2 unchanged. Do the build and upload
 on **Delphi 13.2**. If you do try Delphi 12 first and the SDK import or upload fails, stop
 there; it's the SDK, not something you did.
 
-## 2. Distribution certificate and App Store profile (once)
+## 2. Certificates and the App Store profile: clean start
 
-You made the **Apple Development** certificate and `DragTree Dev` profile for running on your
-phone. Publishing needs a second pair. The App ID `com.johnhutch123.DragTree` is already
-registered (setup guide, Part 3).
+Most "certificate issues" come from old, duplicate or half-made certificates left over from
+earlier attempts (and from the old Mac). The quickest fix is to clear them out and make one
+clean set. This doesn't affect anything already working except that the **development**
+profile has to be regenerated at the end too (2 minutes).
 
-1. **Certificate:** on the Mac, Xcode > Settings > Accounts > your team > **Manage
-   Certificates** > **+** > **Apple Distribution**.
-   Check in Keychain Access > login > My Certificates that `Apple Distribution: John …` has a
-   **private key** under it (click the triangle).
-2. **Profile:** developer.apple.com > Account > Certificates, IDs & Profiles > **Profiles > +**
-   - Distribution: **App Store Connect**
-   - App ID: `com.johnhutch123.DragTree`
-   - Certificate: the Apple Distribution one
-   - Name: `DragTree Store` > Generate.
-3. Xcode > Settings > Accounts > your team > **Download Manual Profiles**.
-   If Delphi doesn't list it later, use the link/copy command from the setup guide, Part 4.
-4. **Back up the certificate:** in Keychain Access right-click the Apple Distribution
-   certificate > **Export** > `.p12` with a password. Keep it with your Android keystore
-   backup. (Unlike Android, losing it isn't fatal; you can make a new one. But it saves time.)
+### How the pieces fit
+
+| Piece | Where it lives | What it's for |
+| --- | --- | --- |
+| **Apple Distribution certificate** | Apple's website **and** the Mac's Keychain, *with its private key* | Signs the store build. The private key only exists on the Mac that made it |
+| **App ID** `com.johnhutch123.DragTree` | Apple's website | Already registered, nothing to do |
+| **App Store Connect profile** (`DragTree Store`) | Apple's website, downloaded to the Mac | Links the App ID to *that exact* certificate |
+| **Apple WWDR G3 intermediate certificate** | Mac Keychain | Lets macOS trust your certificate. Missing = "not trusted" or codesign fails |
+
+A profile only works with the certificate it was made with. **Make a new certificate, and you
+must make a new profile.** That one rule causes most of the trouble.
+
+### 2a. Clear out the old ones
+
+1. **Website:** developer.apple.com > Account > **Certificates, IDs & Profiles > Certificates**.
+   - Revoke every **Apple Distribution** and **iOS Distribution** certificate whose private key
+     you don't have on *this* Mac (anything from the old Mac, or you're not sure). Apple allows
+     only a few distribution certificates per account, so old ones can block you from making new.
+   - Revoking does **not** affect apps already on the App Store or on phones from the store.
+2. **Website > Profiles:** delete any old `DragTree Store` / distribution profiles (they show
+   "Invalid" once their certificate is revoked).
+3. **Mac > Keychain Access** > keychain **login** > **My Certificates**: delete expired or
+   duplicate "Apple Distribution" / "iPhone Distribution" entries. Keep your working
+   **Apple Development** one.
+4. **Mac > Finder > Go > Go to Folder** `~/Library/Developer/Xcode/UserData/Provisioning Profiles`
+   and delete the `.mobileprovision` files there (Xcode re-downloads the good ones). Do the
+   same in `~/Library/MobileDevice/Provisioning Profiles` if it's a real folder, not a link.
+
+### 2b. Make sure the Mac trusts Apple's certificates
+
+Open **Terminal** on the Mac and paste:
+```
+cd ~/Downloads
+curl -fsSLO https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+security add-certificates -k ~/Library/Keychains/login.keychain-db AppleWWDRCAG3.cer
+```
+("already in keychain" is fine.) This is the fix for *"certificate is not trusted"* and for
+codesign failing with **errSecInternalComponent**.
+
+### 2c. New Apple Distribution certificate
+
+1. Xcode > **Settings > Accounts** > your Apple ID > your team > **Manage Certificates…**
+   > **+** > **Apple Distribution**. Close.
+2. Keychain Access > login > **My Certificates**: `Apple Distribution: John … (TEAMID)` with a
+   **triangle**; click it and a **private key** shows underneath. It should say
+   *"This certificate is valid"* in green.
+   - No triangle / no key: that certificate is useless on this Mac. Revoke it and repeat.
+   - In the key's **Get Info > Access Control** you can pick *"Allow all applications to access
+     this item"* to stop codesign asking for your password every build.
+3. **Back it up:** right-click the certificate > **Export** > `.p12` with a password. Keep it
+   safe; it's how you'd move it to another Mac.
+
+### 2d. New App Store Connect profile
+
+1. developer.apple.com > **Profiles > +** > Distribution: **App Store Connect** > Continue.
+2. App ID: `com.johnhutch123.DragTree`.
+3. Certificate: tick the **new** Apple Distribution certificate (check the expiry date matches
+   the one in Keychain, about a year from today).
+4. Name: `DragTree Store` > Generate > **Download**, then double-click the downloaded file.
+5. Xcode > Settings > Accounts > your team > **Download Manual Profiles**.
+6. Make sure PAServer can see it (it looks in the old folder). In Terminal:
+   ```
+   mkdir -p ~/Library/MobileDevice
+   ls -la ~/Library/MobileDevice
+   ```
+   If there's no `Provisioning Profiles` entry, link it:
+   ```
+   ln -s ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles ~/Library/MobileDevice/Provisioning\ Profiles
+   ```
+   If it's already a real folder, copy instead:
+   `cp ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/`
+
+Also regenerate your **development** profile (`DragTree Dev`) the same way if you revoked or
+recreated the development certificate, so running on your phone keeps working.
+
+### 2e. Restart and check from Delphi
+
+1. On the Mac: quit Xcode, stop PAServer (type `q` in its window) and start it again.
+2. In RAD Studio: Project > Options > **Deployment > Provisioning**, target **iOS Device 64-bit**,
+   build type **iOS Device 64-bit - Application Store**.
+   - Untick **Auto** if it's ticked, so you choose explicitly.
+   - Team: your 10-character team ID.
+   - Certificate: `Apple Distribution: John …`.
+   - Provisioning profile: `DragTree Store`.
+   If a list is empty, click the refresh button, then check *Troubleshooting signing* below.
+3. Also check **Development** (build type *iOS Device 64-bit - Development*) points to
+   `Apple Development: …` and `DragTree Dev`.
 
 ## 3. App Store Connect record (once)
 
@@ -159,7 +233,9 @@ So far these emails have been warnings rather than rejections for the app's own 
    iOS Device 64-bit** (double-click), then **iOS Device 64-bit > Configuration > Application
    Store** (double-click).
 4. **Project > Clean**, then **Project > Deploy DragTree**. The first time, the Mac asks to let
-   PAServer use your private key: click **Always Allow**.
+   codesign use your private key: type your **Mac login password** and click **Always Allow**
+   (it may ask two or three times). If nobody is at the Mac to click it, the build hangs or
+   fails, so stay near the Mac for the first deploy.
 5. The file is copied back to the PC as `iOSDevice64\Release\DragTree.ipa` in the project folder.
    A copy also sits on the Mac in PAServer's `scratch-dir` folder (in your home folder, under
    `PAServer`).
@@ -277,6 +353,32 @@ ships.
 6. Certificates last a year, profiles a year. When they expire, existing App Store installs
    keep working; you just need new ones to upload. Renew as in step 2.
 
+## Troubleshooting signing
+
+Look at the Delphi **Messages** window (Output tab) for the first error line.
+
+| Message | Cause and fix |
+| --- | --- |
+| Certificate list empty in Provisioning | No private key under the certificate in Keychain, or it's in another keychain (e.g. *System*). Redo 2c on this Mac. Restart PAServer |
+| Profile list empty | Profile not in the folder PAServer reads: step 2d.6. Restart PAServer |
+| "Certificate not found in provisioning profile" / "doesn't include signing certificate" | Profile was made with a different (old) certificate. Regenerate the profile with the current one (2d), delete the old `.mobileprovision`, restart PAServer |
+| "No provisioning profile found" / "doesn't match bundle ID" | Profile is for another App ID. Check Version Info `CFBundleIdentifier` = `com.johnhutch123.DragTree` |
+| "Certificate is not trusted" | Install the WWDR G3 intermediate (2b) |
+| `errSecInternalComponent` | Same (2b), or the keychain is locked: in Terminal run `security unlock-keychain ~/Library/Keychains/login.keychain-db`. Start PAServer from the Mac itself, not over remote login/SSH |
+| Keeps asking for the password / build hangs | Click **Always Allow** on the Mac, or set the private key's Access Control (2c.2) |
+| "You already have a current Apple Distribution certificate" / can't create one | Too many distribution certificates: revoke old ones (2a) |
+| "Provisioning profile has expired" | Profiles and certificates last a year. Regenerate (2c, 2d) |
+| Upload: ITMS-90161 "Invalid provisioning profile" | You built with the **Development** build type, or the Development profile. Use **Application Store** and `DragTree Store` |
+| Upload: ITMS-90035 "Invalid signature" | Signed with an Apple **Development** certificate. Pick the Apple Distribution one |
+| Wrong certificate keeps getting used | **Auto** is ticked or an old certificate is still in Keychain. Untick Auto, delete expired/duplicate certificates |
+
+To see what's really in Keychain, run in Terminal:
+```
+security find-identity -v -p codesigning
+```
+It should list exactly one `Apple Development: …` and one `Apple Distribution: …`, both
+"valid". Anything else (`CSSMERR_TP_CERT_REVOKED`, duplicates) is worth cleaning up.
+
 ## Common rejections and problems
 
 | Problem | Fix |
@@ -286,14 +388,17 @@ ships.
 | ITMS-90474 iPad multitasking orientations | Set device family to iPhone only (step 4) |
 | "The bundle version must be higher than the previously uploaded version" | Raise `CFBundleVersion` |
 | "No suitable application records were found" | Bundle ID in Version Info doesn't match the App Store Connect record (step 3) |
-| Certificate / profile lists empty in Provisioning | Private key missing or profile not downloaded. Step 2 and setup guide Troubleshooting |
+| Certificate / profile problems | See *Troubleshooting signing* above |
 | "Invalid Code Signing Entitlements" | Untick everything in Entitlement List, rebuild |
 | ITMS-91053 email | Add `PrivacyInfo.xcprivacy` (step 4) |
 | Guideline 4.2 "Minimum functionality" | Rare for a working trainer, but make sure the review notes explain how to use it (step 8) |
 | Guideline 2.1 crash on iPad | The reviewer ran the iPhone app on an iPad. Test it in an iPad simulator before submitting |
 | Guideline 5.2 intellectual property | Remove NHRA or other brand names / logos |
 
-## Sources (checked 26 October 2026)
+## Sources (checked 26 October 2026, signing 13 November 2026)
+
+- [Delphi-PRAXiS: certificate not found in provisioning profile](https://en.delphipraxis.net/topic/10888-ios-certificate-not-found-in-provisioning-profile/)
+- [errSecInternalComponent and the WWDR G3 intermediate](https://janpreet.com/codesign-missing-intermediate)
 
 - [Apple: SDK minimum requirements](https://developer.apple.com/news/upcoming-requirements/)
 - [Apple: App Store submissions open for iOS 27, iOS 27 SDK required from April 2027](https://www.mactech.com/2026/09/10/app-store-submissions-now-open-for-the-latest-os-releases/amp/)
