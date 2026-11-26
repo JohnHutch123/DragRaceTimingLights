@@ -261,20 +261,21 @@ people's trademarks) and Google's equivalent make real car names a review
 risk, and generic presets avoid it. Players can rename their own saved cars
 whatever they like, because that's their own text on their own phone.
 
-| Preset | Power | Weight | Drive | Rough 1/4 mile |
+| Preset | Power | Weight | Drive | Model 1/4 mile (auto, prepped) |
 |---|---|---|---|---|
-| Daily hatchback | 90 kW | 1,150 kg | FWD | 16.5 s |
-| Hot hatch | 180 kW | 1,350 kg | FWD | 14.0 s |
-| Turbo AWD sedan | 220 kW | 1,500 kg | AWD | 13.3 s |
-| Twin turbo AWD sedan | 330 kW | 1,900 kg | AWD | 12.6 s |
-| V8 sedan | 300 kW | 1,800 kg | RWD | 12.9 s |
-| Modern muscle car | 340 kW | 1,750 kg | RWD | 12.3 s |
-| Supercharged V8 | 485 kW | 1,900 kg | RWD | 11.4 s |
-| Superbike | 150 kW | 200 kg + rider | RWD | 10.0 s (traction and wheelie limited) |
-| Street/strip turbo | 600 kW | 1,500 kg | RWD, radials | 9.6 s |
-| Pro-mod style | 2,000 kW | 1,200 kg | RWD, slicks | 6.0 s |
+| Daily hatchback | 90 kW | 1,150 kg | FWD | 16.4 s |
+| Hot hatch | 180 kW | 1,350 kg | FWD, turbo | 14.2 s |
+| Turbo AWD sedan | 220 kW | 1,500 kg | AWD, turbo | 13.0 s |
+| Twin turbo AWD sedan | 330 kW | 1,900 kg | AWD, turbo | 12.4 s |
+| V8 sedan | 300 kW | 1,800 kg | RWD | 13.2 s |
+| Modern muscle car | 340 kW | 1,750 kg | RWD | 12.8 s |
+| Supercharged V8 | 485 kW | 1,900 kg | RWD, street tyres | 12.4 s (traction limited) |
+| Superbike | 150 kW | 280 kg with rider | RWD | 9.7 s |
+| Street/strip turbo | 600 kW | 1,500 kg | RWD, radials | 9.7 s |
+| Pro-mod style | 2,400 kW | 1,200 kg | RWD, slicks | 6.1 s |
 
-The rough times come from the well-known Hale formula
+The model times are from `Tests/CarSimTest.dpr` (version 2.0). Before
+building, the targets came from the well-known Hale formula
 (ET = 5.825 x (lb / hp)^(1/3), trap mph = 234 x (hp / lb)^(1/3)), which is
 what the model should land near for a clean full-throttle run. That gives us a
 simple check while tuning: if the V8 sedan runs 10 s, something is wrong.
@@ -298,7 +299,7 @@ be tested on Windows with a console program). Each time step it does:
    catch up, so too few revs bogs and too many spins the tyres. Auto: the
    torque converter holds the stall rpm until it locks up.
 5. **Shifts:** at the shift point the car changes up, with a short gap with
-   no drive (0.25 s auto, 0.15 s manual).
+   no drive (0.15 s manual; an automatic keeps 40% of the drive for 0.20 s).
 6. **Drag:** air drag (from a frontal area x drag figure, preset per car) and
    rolling resistance.
 7. **Speed and distance:** add up acceleration over 1 ms steps. Record the
@@ -396,7 +397,8 @@ both gearbox settings, and keeps manual shifting as an option to try later.
 ## 9. App Store and Play Store implications
 
 - **It's an update, not a new app.** Same bundle ID `com.johnhutch123.DragTree`;
-  bump the version (1.1.0) and build number.
+  bump the version and build number (cars and solo racing are 2.0.0, so
+  Bluetooth racing would be 2.1.0 or later).
 - **Privacy policy** (`docs/privacy-policy.md`) needs a line: "Race mode uses
   Bluetooth to talk directly to another phone nearby. Only race data (lane,
   tree timing, reaction and elapsed times, car settings, a device name) is exchanged, it never leaves
@@ -415,7 +417,7 @@ both gearbox settings, and keeps manual shifting as an option to try later.
   and Play needs target API 36 (see `docs/PlayStore-guide.md`). The race work
   is plain Delphi and should carry over to 13.2 unchanged.
 - Version 1.0 is in review now. Nothing here should hold that up; racing
-  goes in a later 1.1 update.
+  goes in a later update, after version 2.0.
 
 ## 10. Wi-Fi instead of Bluetooth?
 
@@ -446,8 +448,9 @@ can be tried at any time.
    against the rough times in section 6 using a small Windows console test.
    Car screen, race length setting, the track strip, time slips, win light,
    and the computer opponent driving a car. **This ships on its own as
-   version 1.1** (John, 18 Nov 2026); the Bluetooth phases follow in a later
-   update.
+   version 2.0** (John, 18 Nov 2026; renamed from 1.1 on 22 Nov 2026, when
+   1.1 became the tree speed and dial-in update); the Bluetooth phases follow
+   in a later update.
 2. **BLE spike (the risk).** A throwaway test form, outside the main app:
    one phone advertises, the other finds it, connects, and they echo
    messages and show round-trip times. Test all four combinations: iPhone
@@ -507,5 +510,6 @@ are signed 32-bit in 0.1 ms units (a "before the tree" foul can be several secon
   18 Nov 2026)
 - Presets as listed in section 6, including John's **twin turbo AWD sedan**
   (330 kW, 1,900 kg, AWD). (John, 18 Nov 2026)
-- **Cars and solo racing ship first as version 1.1**, before the Bluetooth
+- **Cars and solo racing ship first as version 2.0** (first planned as 1.1),
+  before the Bluetooth
   work. (John, 18 Nov 2026)
