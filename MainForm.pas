@@ -38,6 +38,13 @@ unit MainForm;
   Without multi-touch (a mouse on Windows) only the brake is used. On Windows
   the space bar is also the brake.
 
+  Foot sensors (Settings > Pedal input): pressure pads in the driver's shoes
+  or on the car's pedals, read by a small board that acts as a USB (or
+  Bluetooth) keyboard. B = brake, T = throttle, C = clutch: the key is held
+  down while the foot presses. With foot sensors the full clutch / brake /
+  throttle set works even without multi-touch, and the pads on screen only
+  show what the feet are doing. Board code and wiring: docs/Pedal-sensors.md.
+
   Rolling right through the stage beam is "too far forward" and ends the run.
 
   After the launch both cars run down the track. CarSim.pas works out each
@@ -97,10 +104,11 @@ type
   TTreePhase = (tpIdle, tpStaging, tpWaiting, tpCountdown, tpGreen);
   TPedal = (pdClutch, pdBrake, pdThrottle);
   TPedals = set of TPedal;
+  TPedalInput = (piScreen, piSensors);
   // the order they appear on the Settings screen (the dial-in boxes come
   // straight after Handicap)
-  TSetting = (stTree, stSpeed, stDelay, stLane, stStaging, stTrans,
-    stThrottle, stCar, stLength, stSurface, stUnits, stHandicap);
+  TSetting = (stTree, stSpeed, stDelay, stLane, stStaging, stPedalInput,
+    stTrans, stThrottle, stCar, stLength, stSurface, stUnits, stHandicap);
   TOutcome = (ocNone, ocWin, ocLoss, ocTie);
   // what the Car screen's - / + buttons change
   TCarField = (cfPreset, cfPower, cfWeight, cfGears, cfFinal, cfShift, cfLaunch);
@@ -205,7 +213,9 @@ type
     FHandicap: Boolean;          // dial-in (bracket) racing
     FYourDial: Integer;          // dial-ins, hundredths of a second
     FOtherDial: Integer;
-    FMultiTouch: Boolean;        // false: brake only
+    FMultiTouch: Boolean;        // false: brake only (unless foot sensors)
+    FPedalInput: TPedalInput;    // on-screen pads or foot sensors (B/T/C keys)
+    FSensorSeen: Boolean;        // a foot sensor key has arrived since start
     FPhase: TTreePhase;
     FRunning: Boolean;
     FCountdownMs: Double;        // when the first tree starts
@@ -288,6 +298,8 @@ type
     function GreenLit(Lane: Integer; T: Double): Boolean;
     function EffTrans: TTransMode;
     function EffThrottle: TThrottleMode;
+    function AllPedals: Boolean;
+    function KeyPedal(Key: Word; KeyChar: WideChar; out P: TPedal): Boolean;
     function PedalUsed(P: TPedal): Boolean;
     function CarHeld(const S: TPedals): Boolean;
     function CarReady(const S: TPedals): Boolean;
@@ -429,6 +441,7 @@ const
   StageNames: array[TStageMode] of string = ('Auto', 'Manual');
   TransNames: array[TTransMode] of string = ('Auto', 'Manual');
   ThrottleNames: array[TThrottleMode] of string = ('Auto', 'Manual');
+  PedalInputNames: array[TPedalInput] of string = ('On-screen pads', 'Foot sensors');
 
 {$IFDEF MSWINDOWS}
 const
@@ -752,6 +765,7 @@ begin
   FStageMode := smAuto;
   FTransMode := trAuto;
   FThrottleMode := thAuto;
+  FPedalInput := piScreen;
   FUserLane := 0;
   FCarPreset := 4; // V8 sedan
   FCar := Presets[FCarPreset];
@@ -777,6 +791,8 @@ begin
         Ord(Low(TTransMode)), Ord(High(TTransMode))));
       FThrottleMode := TThrottleMode(EnsureRange(Ini.ReadInteger('Options', 'Throttle', 0),
         Ord(Low(TThrottleMode)), Ord(High(TThrottleMode))));
+      FPedalInput := TPedalInput(EnsureRange(Ini.ReadInteger('Options', 'PedalInput', 0),
+        Ord(Low(TPedalInput)), Ord(High(TPedalInput))));
       FUserLane := EnsureRange(Ini.ReadInteger('Options', 'Lane', 0), 0, 1);
       FRaceLength := TRaceLength(EnsureRange(Ini.ReadInteger('Options', 'Length',
         Ord(rlQuarter)), Ord(Low(TRaceLength)), Ord(High(TRaceLength))));
@@ -835,6 +851,7 @@ begin
       Ini.WriteInteger('Options', 'Staging', Ord(FStageMode));
       Ini.WriteInteger('Options', 'Trans', Ord(FTransMode));
       Ini.WriteInteger('Options', 'Throttle', Ord(FThrottleMode));
+      Ini.WriteInteger('Options', 'PedalInput', Ord(FPedalInput));
       Ini.WriteInteger('Options', 'Lane', FUserLane);
       Ini.WriteInteger('Options', 'Length', Ord(FRaceLength));
       Ini.WriteInteger('Options', 'Surface', Ord(FSurface));
@@ -964,9 +981,15 @@ end;
 
 { ---- pedals ---- }
 
+function TfrmMain.AllPedals: Boolean;
+begin
+  // clutch and throttle need two fingers at once on screen, or foot sensors
+  Result := FMultiTouch or (FPedalInput = piSensors);
+end;
+
 function TfrmMain.EffTrans: TTransMode;
 begin
-  if FMultiTouch then
+  if AllPedals then
     Result := FTransMode
   else
     Result := trAuto;
@@ -974,7 +997,7 @@ end;
 
 function TfrmMain.EffThrottle: TThrottleMode;
 begin
-  if FMultiTouch then
+  if AllPedals then
     Result := FThrottleMode
   else
     Result := thAuto;
@@ -1195,18 +1218,45 @@ begin
   PadMouseUp(Sender, TMouseButton.mbLeft, [], 0, 0);
 end;
 
+function TfrmMain.KeyPedal(Key: Word; KeyChar: WideChar;
+  out P: TPedal): Boolean;
+begin
+  // Space or B = brake, T = throttle, C = clutch. Platforms differ in what
+  // they fill in (Windows sends Key on key down and key up and KeyChar only
+  // on key down; Android may send either), so check both.
+  Result := True;
+  if (KeyChar = ' ') or (Key = vkSpace) or (KeyChar = 'b') or (KeyChar = 'B')
+    or (Key = vkB) then
+    P := pdBrake
+  else if (KeyChar = 't') or (KeyChar = 'T') or (Key = vkT) then
+    P := pdThrottle
+  else if (KeyChar = 'c') or (KeyChar = 'C') or (Key = vkC) then
+    P := pdClutch
+  else
+    Result := False;
+end;
+
 procedure TfrmMain.FormKeyDown(Sender: TObject; var Key: Word;
   var KeyChar: WideChar; Shift: TShiftState);
 var
   T: Double;
+  P: TPedal;
+  IsSpace: Boolean;
 begin
   T := NowMs;
-  // Windows: Space is the brake, Enter starts a run
-  if (KeyChar = ' ') or (Key = vkSpace) then
+  IsSpace := (KeyChar = ' ') or (Key = vkSpace);
+  // pedal keys (foot sensors, or Space on Windows), Enter starts a run
+  if KeyPedal(Key, KeyChar, P) then
   begin
-    if not (pdBrake in FKeyPedals) then
+    // a held key repeats: only the first key down counts
+    if not (P in FKeyPedals) then
     begin
-      Include(FKeyPedals, pdBrake);
+      Include(FKeyPedals, P);
+      if not IsSpace and not FSensorSeen then
+      begin
+        FSensorSeen := True; // B, T or C: a foot sensor board is plugged in
+        UpdateSettingsTexts;
+      end;
       PedalsChanged(T);
     end;
     KeyChar := #0;
@@ -1221,7 +1271,11 @@ end;
 
 procedure TfrmMain.FormKeyUp(Sender: TObject; var Key: Word;
   var KeyChar: WideChar; Shift: TShiftState);
+var
+  T: Double;
+  P: TPedal;
 begin
+  T := NowMs;
   // Android Back button closes the top panel instead of quitting the app
   if Key = vkHardwareBack then
   begin
@@ -1236,10 +1290,12 @@ begin
     Key := 0;
     Exit;
   end;
-  if (KeyChar = ' ') or (Key = vkSpace) then
+  if KeyPedal(Key, KeyChar, P) then
   begin
-    Exclude(FKeyPedals, pdBrake);
-    PedalsChanged(NowMs);
+    Exclude(FKeyPedals, P);
+    PedalsChanged(T);
+    KeyChar := #0;
+    Key := 0;
   end;
 end;
 
@@ -1249,7 +1305,10 @@ var
   P: TPedal;
 begin
   Old := FPressed;
-  New := FTouchPedals + FMousePedals + FKeyPedals;
+  if FPedalInput = piSensors then
+    New := FKeyPedals // the screen only shows the feet, a stray touch does nothing
+  else
+    New := FTouchPedals + FMousePedals + FKeyPedals;
   for P := Low(TPedal) to High(TPedal) do
     if not PedalUsed(P) then
       Exclude(New, P);
@@ -1423,15 +1482,16 @@ begin
     end;
   FSettingButtons[stLane].Text := 'Lane: ' + LaneNames[FUserLane];
   FSettingButtons[stStaging].Text := 'Staging: ' + StageNames[FStageMode];
+  FSettingButtons[stPedalInput].Text := 'Pedal input: ' + PedalInputNames[FPedalInput];
   FSettingButtons[stTrans].Text := 'Transmission: ' + TransNames[EffTrans];
   FSettingButtons[stThrottle].Text := 'Throttle: ' + ThrottleNames[EffThrottle];
-  if not FMultiTouch then
+  if not AllPedals then
   begin
     FSettingButtons[stTrans].Text := FSettingButtons[stTrans].Text + NeedsTouch;
     FSettingButtons[stThrottle].Text := FSettingButtons[stThrottle].Text + NeedsTouch;
   end;
-  FSettingButtons[stTrans].Enabled := FMultiTouch;
-  FSettingButtons[stThrottle].Enabled := FMultiTouch;
+  FSettingButtons[stTrans].Enabled := AllPedals;
+  FSettingButtons[stThrottle].Enabled := AllPedals;
 
   FSettingButtons[stCar].Text := 'Car: ' + CarTitle + '  >';
   FSettingButtons[stLength].Text := 'Race: ' + RaceLengthNames[FRaceLength];
@@ -1444,11 +1504,18 @@ begin
   Summary := Format('%s tree %s, %s lane, %s staging', [TreeNames[FTreeMode],
     TreeSpeedText, LowerCase(LaneNames[FUserLane]),
     LowerCase(StageNames[FStageMode])]);
-  if FMultiTouch then
+  if AllPedals then
     Summary := Summary + Format(', %s trans, %s throttle',
       [LowerCase(TransNames[EffTrans]), LowerCase(ThrottleNames[EffThrottle])])
   else
     Summary := Summary + ', brake only';
+  if FPedalInput = piSensors then
+  begin
+    if FSensorSeen then
+      Summary := Summary + ', foot sensors connected'
+    else
+      Summary := Summary + ', foot sensors (none yet: press a pedal)';
+  end;
   if FHandicap then
     Summary := Summary + Format(', dial-in %s vs %s',
       [FormatDial(FYourDial), FormatDial(FOtherDial)]);
@@ -1478,6 +1545,8 @@ begin
       FUserLane := 1 - FUserLane;
     stStaging:
       if FStageMode = smAuto then FStageMode := smManual else FStageMode := smAuto;
+    stPedalInput:
+      if FPedalInput = piScreen then FPedalInput := piSensors else FPedalInput := piScreen;
     stTrans:
       if FTransMode = trAuto then FTransMode := trManual else FTransMode := trAuto;
     stThrottle:
