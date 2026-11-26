@@ -23,6 +23,13 @@ Tap **Settings** to choose:
   on their dial-ins they reach the line together. The verdict then says if you
   won and by how much, which comes down to the better reaction time; a red
   light loses.
+- **Pedal input: On-screen pads / Foot sensors** (new in 1.2). Foot sensors
+  are pressure pads in your shoes (or on the car's pedals) wired to a small
+  board that the phone sees as a USB keyboard: **B** = brake, **T** =
+  throttle, **C** = clutch, held down while your foot presses. With foot
+  sensors, manual transmission and throttle work without multi-touch, and the
+  pads on screen just light up to show what your feet are doing. Build and
+  board code: [docs/Pedal-sensors.md](docs/Pedal-sensors.md).
 - **Lane: Left / Right.** Your lane is marked **YOU** in blue on the tree, and
   your car is the blue one.
 - **Staging: Auto / Manual.** Auto rolls your car into stage for you. In
@@ -36,7 +43,8 @@ The pedals are pads at the bottom of the screen, used with several fingers at
 once like real pedals (clutch left, brake middle, throttle right). Like two
 feet, you never need more than two pads at once. Without
 multi-touch (a mouse on Windows) only the **BRAKE** pad is used, and the space
-bar works as the brake too.
+bar works as the brake too. A keyboard works on any platform: Space or B
+brake, T throttle, C clutch.
 
 A run:
 
