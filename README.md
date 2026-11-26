@@ -10,6 +10,27 @@ Tap **Settings** to choose:
 - **Tree: Pro / Sportsman.** Pro lights all three ambers together with the
   green 0.400 s later. Sportsman (full tree) lights the ambers one after
   another 0.500 s apart, with the green 0.500 s after the last one.
+- **Tree speed** (new in 1.1). **NHRA** uses the times above. Tap to step
+  through faster (or slower) amber times: 0.500, 0.450, 0.400, 0.350, 0.300,
+  0.250, 0.200 and 0.150 s. On a Pro tree that is the time from the ambers to
+  the green; on a Sportsman tree it is the gap between each bulb.
+- **Start delay** (new in 1.1). How long the tree waits once both lanes are
+  staged: **Normal** 0.8 to 3.0 s, or **Quick** 0.3 to 1.2 s.
+- **Handicap (dial-in)** (new in 1.1). Bracket racing: type a dial-in (the
+  time you expect your car to run, such as 12.50) for **You** and for the
+  **Other** lane. The slower car (bigger dial-in) gets its tree first and the
+  faster car's tree is held back by the difference, so if both cars run dead
+  on their dial-ins they reach the line together. Since 2.0 the cars really
+  run (see below): the first to the finish wins, but running quicker than
+  your dial-in is a **break out** and loses (if both break out, the one who
+  broke out by less wins). A red light loses.
+- **Pedal input: On-screen pads / Foot sensors** (new in 1.2). Foot sensors
+  are pressure pads in your shoes (or on the car's pedals) wired to a small
+  board that the phone sees as a USB keyboard: **B** = brake, **T** =
+  throttle, **C** = clutch, held down while your foot presses. With foot
+  sensors, manual transmission and throttle work without multi-touch, and the
+  pads on screen just light up to show what your feet are doing. Build and
+  board code: [docs/Pedal-sensors.md](docs/Pedal-sensors.md).
 - **Lane: Left / Right.** Your lane is marked **YOU** in blue on the tree, and
   your car is the blue one.
 - **Staging: Auto / Manual.** Auto rolls your car into stage for you. In
@@ -23,7 +44,8 @@ The pedals are pads at the bottom of the screen, used with several fingers at
 once like real pedals (clutch left, brake middle, throttle right). Like two
 feet, you never need more than two pads at once. Without
 multi-touch (a mouse on Windows) only the **BRAKE** pad is used, and the space
-bar works as the brake too.
+bar works as the brake too. A keyboard works on any platform: Space or B
+brake, T throttle, C clutch.
 
 A run:
 
@@ -40,7 +62,8 @@ A run:
      or the engine stalls). Once staged, keep the clutch in and take the right
      finger off the brake and onto the **THROTTLE**.
 3. Once both lanes are staged and you are holding the car, the tree starts
-   after a random wait of 0.8 to 3.0 s.
+   after a random wait (see Start delay). With handicap on, the two lanes'
+   trees start at different times.
 4. Launch by letting the car go: release the brake (automatic) or drop the
    clutch (manual). With an automatic, launching with the throttle closed bogs
    the car. With a manual, dropping the clutch with the brake still on or no
@@ -58,7 +81,47 @@ let the car go:
 
 When you red-light, your red bulb lights and the tree carries on for the
 other lane. History marks Sportsman runs with **S**, red lights with **R** and
-bogged launches with **B**. Your settings are saved between sessions.
+bogged launches with **B**, and handicap wins and losses with **W** and **L**.
+Your settings are saved between sessions.
+
+## Cars and the race down the track (new in 2.0)
+
+After the launch both cars run down the track, and **the first car to the
+finish line wins**: reaction time plus elapsed time. A red light loses. The
+track view under the tree shows both cars, the **WIN** light comes on over
+the winner's lane, and a **time slip** shows both lanes' reaction time,
+60 ft, 330 ft, 1/8 mile, 1000 ft and 1/4 mile times and speeds. History shows
+each run's elapsed time with **W** (win), **L** (loss) or **T** (tie).
+
+The Settings screen has four more rows:
+
+- **Car** opens the Car screen: pick one of ten presets with - / +, then
+  change power, weight, drive (RWD / FWD / AWD), turbo, tyres (street, drag
+  radial, slick), number of gears, final drive, shift point and launch rpm
+  (manual gearbox) or stall speed (automatic). Hold - or + to change quickly.
+  The bottom line shows the best run the car can do, so you can see what a
+  change does.
+- **Race:** 1/8 mile, 1000 ft or 1/4 mile.
+- **Track:** prepped strip, dry street or wet. Less grip means more
+  wheelspin; slicks are hopeless in the wet, AWD copes best.
+- **Units:** kW, kg, km/h or hp, lb, mph.
+
+The run is worked out by `CarSim.pas`: engine torque from the power figure
+(with turbo lag), clutch slip or torque converter at the launch, the gears
+(changed up automatically at the shift point), tyre grip with weight moving
+to the rear, wheelspin, air drag and rolling resistance, every millisecond.
+With manual throttle, lifting off the THROTTLE pad really costs time, and a
+manual launches on the revs you are holding (the throttle pad holds the
+launch rpm while you are staged, like a two-step rev limiter; with an
+automatic on the brake it revs to the stall speed). Launch on too few revs
+and the car bogs; too many and the tyres spin.
+
+The car in the other lane drives the same car as you, flat out, with a
+reaction time of 0.040 to 0.240 s.
+
+`Tests/CarSimTest.dpr` is a small console program that prints every preset's
+runs on each track and checks them against real-world times. Build it as a
+Windows console app in RAD Studio (or with Free Pascal).
 
 Buttons: **Start** runs the tree, **Stop** aborts a run, **Reset** clears the
 lights for the next run, **Clear** wipes the history and stats.
@@ -89,6 +152,8 @@ touch-down handler. Phone screens and touch panels add some latency
 
 - `DragTree.dpr` / `DragTree.dproj`: project
 - `MainForm.pas` / `MainForm.fmx`: tree drawing, timing and UI
+- `CarSim.pas`: the car model and the preset cars (no UI code)
+- `Tests/CarSimTest.dpr`: console check of the car model
 
 ## App icons
 
