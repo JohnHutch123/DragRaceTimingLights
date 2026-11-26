@@ -85,6 +85,10 @@ Always eject CIRCUITPY before unplugging it from the PC.
 - **Safe start-up:** it waits until the phone accepts it as a keyboard, then
   releases all keys.
 - **Changing keys:** edit the `PEDALS` list.
+- **User LED:** the board's built-in RGB LED lights while a pedal is down:
+  red = brake, green = throttle, blue = clutch. Two pedals at once mix
+  (brake + throttle = yellow, clutch + throttle = cyan). Set
+  `SHOW_LED = False` to turn it off. Handy for calibration without a PC.
 
 ## Calibration
 
