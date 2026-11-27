@@ -12,6 +12,9 @@ This guide replaces the old `Android-guide.md` and `iPhone-and-Mac-setup.md`.
 Publishing to the stores is covered separately in `PlayStore-guide.md` (Google Play) and
 `AppStore-guide.md` (Apple). Start those once the app runs on your phone.
 
+For the everyday loop of pulling new changes and putting them on the phones (USB, PAServer,
+Play Internal testing, TestFlight, which version numbers to raise), see `Testing-updates-guide.md`.
+
 ---
 
 ## Where the project is now
@@ -74,6 +77,8 @@ upgrades the project.
 5. **Project > Options > Application > Uses Permissions**: Drag Tree needs none. Untick them all.
 
 ## 1.4 Test on the phone
+
+After the first run, use `Testing-updates-guide.md` (steps 1 and 3) each time new code arrives.
 
 1. Build configuration **Debug**, press **F9** (Run). The first build is slow.
    The app installs and opens on the phone, with the Drag Tree icon and a dark splash.
@@ -245,6 +250,8 @@ A new or re-registered iPhone means re-generating the Dev profile and downloadin
 3. Add **macOS ARM 64-bit** in SDK Manager too, for the Mac version.
 
 ## 2.7 Run on the iPhone
+
+After the first run, use `Testing-updates-guide.md` (steps 1 and 4) each time new code arrives.
 
 1. **Project > Options > Deployment > Provisioning**, target iOS Device 64-bit:
    - Build type **iOS Device 64-bit - Development**: your team, `Apple Development: …`, profile `DragTree Dev`.
