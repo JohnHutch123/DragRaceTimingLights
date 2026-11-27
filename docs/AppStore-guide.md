@@ -343,6 +343,9 @@ ships.
 
 ## 9. Every update after that
 
+For test builds during development (installing through PAServer, TestFlight builds, build
+numbers), see `Testing-updates-guide.md`.
+
 1. Change code, test on your phone.
 2. Bump `CFBundleShortVersionString` (e.g. `1.0.1`) and make sure `CFBundleVersion` went up.
 3. Application Store build, Deploy, Transporter (step 5).

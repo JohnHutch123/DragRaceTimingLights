@@ -293,6 +293,9 @@ testing" reply. The decision usually takes about **7 days**.
 
 ## 13. Every update after that
 
+For test builds during development (USB installs, Internal testing, Internal app sharing),
+see `Testing-updates-guide.md`.
+
 1. Change code, test on the phone.
 2. Raise **versionCode** (and versionName) for Android 64-bit **and** 32-bit, Release.
 3. Release + Application Store build, Clean, Build, Deploy (step 6).
