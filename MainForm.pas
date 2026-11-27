@@ -13,6 +13,13 @@ unit MainForm;
                 Pro tree:       all three ambers together, green 0.400 s later
                 Sportsman tree: ambers one after another 0.500 s apart,
                                 green 0.500 s after the last amber
+              Those are the NHRA timings. Settings > Tree speed swaps them
+              for a faster (or slower) amber time, and Start delay picks a
+              quicker wait after staging.
+  Handicap (bracket) racing: each car has a dial-in, the time it expects to
+  run. The slower car (bigger dial-in) gets its tree first; the faster car's
+  tree is held back by the difference, so if both run on their dial-in they
+  reach the finish line together and the better reaction time wins.
   You launch by letting the car go: release the brake (automatic gearbox) or
   drop the clutch (manual gearbox). Never more than two pedals at once, like
   two feet.
@@ -31,7 +38,22 @@ unit MainForm;
   Without multi-touch (a mouse on Windows) only the brake is used. On Windows
   the space bar is also the brake.
 
-  Rolling right through the stage beam is "too far forward" and ends the run. }
+  Foot sensors (Settings > Pedal input): pressure pads in the driver's shoes
+  or on the car's pedals, read by a small board that acts as a USB (or
+  Bluetooth) keyboard. B = brake, T = throttle, C = clutch: the key is held
+  down while the foot presses. With foot sensors the full clutch / brake /
+  throttle set works even without multi-touch, and the pads on screen only
+  show what the feet are doing. Board code and wiring: docs/Pedal-sensors.md.
+
+  Rolling right through the stage beam is "too far forward" and ends the run.
+
+  After the launch both cars run down the track. CarSim.pas works out each
+  car's run from its power, weight, gearing and tyres, the track surface and
+  (for your car) the throttle pad. The first car to the finish line wins:
+  reaction time + elapsed time. A red light loses. The car, race length
+  (1/8 mile, 1000 ft, 1/4 mile), track (prepped, dry street, wet) and units
+  are on the Settings screen; the Car screen picks a preset and changes it.
+  The computer car in the other lane drives the same car as you. }
 
 interface
 
@@ -40,19 +62,28 @@ uses
   System.Diagnostics, System.Generics.Collections, System.IOUtils,
   System.IniFiles,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Objects, FMX.StdCtrls,
-  FMX.Layouts, FMX.Controls.Presentation;
+  FMX.Layouts, FMX.Controls.Presentation, FMX.Edit,
+  CarSim;
 
 const
-  ProAmberMs: Double = 400.0;   // Pro tree: ambers to green
-  SportAmberMs: Double = 500.0; // Sportsman tree: gap between each amber and green
-  AutoStartMinMs = 800;     // random wait after both lanes are staged
-  AutoStartRandMs = 2200;
-  HistoryLines = 20;
+  ProAmberMs: Double = 400.0;   // NHRA Pro tree: ambers to green
+  SportAmberMs: Double = 500.0; // NHRA Sportsman tree: gap between each amber and green
+  // Settings > Tree speed. 0 = the NHRA time for the tree in use (above),
+  // anything else is the amber time in ms for either tree.
+  TreeSpeedsMs: array[0..8] of Integer = (0, 500, 450, 400, 350, 300, 250, 200, 150);
+  // Settings > Start delay: random wait after both lanes are staged
+  StartDelayNames: array[0..1] of string = ('Normal 0.8-3.0 s', 'Quick 0.3-1.2 s');
+  StartDelayMinMs: array[0..1] of Integer = (800, 300);
+  StartDelayRandMs: array[0..1] of Integer = (2200, 900);
+  // dial-ins in hundredths of a second
+  MinDialIn = 200;   // 2.00 s
+  MaxDialIn = 9999;  // 99.99 s
+  DefaultYourDial = 1250;
+  DefaultOtherDial = 1180;
+  HistoryLines = 12;        // runs shown, two lines each
 
   // engine, for the rev bar and stalling (manual gearbox)
   IdleRpm: Double = 900.0;
-  RevLimitRpm: Double = 7000.0;
-  MaxGaugeRpm: Double = 8000.0;
   RevUpRate: Double = 14000.0;    // rpm per second, throttle held
   RevDownRate: Double = 9000.0;   // rpm per second, throttle off
   StallGraceMs = 500;             // brake on, clutch out this long = stall
@@ -64,7 +95,6 @@ const
   TooFarIn: Double = 16.0;      // tyre has rolled right through the stage beam
   AutoStageIn: Double = 8.5;    // where auto staging stops (shallow stage)
   CarStartIn: Double = -40.0;
-  OffScreenIn: Double = 240.0;
 
 type
   TTreeMode = (tmPro, tmSportsman);
@@ -74,7 +104,16 @@ type
   TTreePhase = (tpIdle, tpStaging, tpWaiting, tpCountdown, tpGreen);
   TPedal = (pdClutch, pdBrake, pdThrottle);
   TPedals = set of TPedal;
-  TSetting = (stTree, stLane, stStaging, stTrans, stThrottle);
+  TPedalInput = (piScreen, piSensors);
+  // the order they appear on the Settings screen (the dial-in boxes come
+  // straight after Handicap)
+  TSetting = (stTree, stSpeed, stDelay, stLane, stStaging, stPedalInput,
+    stTrans, stThrottle, stCar, stLength, stSurface, stUnits, stHandicap);
+  TOutcome = (ocNone, ocWin, ocLoss, ocTie);
+  // what the Car screen's - / + buttons change
+  TCarField = (cfPreset, cfPower, cfWeight, cfGears, cfFinal, cfShift, cfLaunch);
+  // and its tap-to-change buttons
+  TCarCycle = (ccDrive, ccEngine, ccTyres);
 
   TRunResult = record
     ReactionMs: Double;
@@ -82,14 +121,23 @@ type
     BeforeTree: Boolean;   // left before the countdown had even started
     Bogged: Boolean;       // launched with the throttle closed
     Mode: TTreeMode;
+    Finished: Boolean;     // reached the finish line
+    ET: Double;            // s
+    TrapSpeed: Double;     // m/s
+    OppReactionMs: Double;
+    OppET: Double;
+    Outcome: TOutcome;
+    Handicap: Boolean;     // a handicap (dial-in) race
+    BrokeOut: Boolean;     // handicap: ran quicker than the dial-in
   end;
 
   TCar = record
     Pos: Double;           // inches, see the geometry constants above
-    Speed: Double;         // inches per second
     Launched: Boolean;
     RollAtMs: Double;      // opponent only: when it starts rolling in
     LaunchAtMs: Double;    // opponent only: when it will leave
+    LaunchPos: Double;     // where it was when it left, inches
+    RunStartMs: Double;    // when it left
   end;
 
   // A plain coloured button. The stock FMX button style looks greyed out
@@ -160,10 +208,18 @@ type
     FTransMode: TTransMode;
     FThrottleMode: TThrottleMode;
     FUserLane: Integer;          // 0 = left, 1 = right
-    FMultiTouch: Boolean;        // false: brake only
+    FTreeSpeed: Integer;         // index into TreeSpeedsMs
+    FStartDelay: Integer;        // index into StartDelayNames
+    FHandicap: Boolean;          // dial-in (bracket) racing
+    FYourDial: Integer;          // dial-ins, hundredths of a second
+    FOtherDial: Integer;
+    FMultiTouch: Boolean;        // false: brake only (unless foot sensors)
+    FPedalInput: TPedalInput;    // on-screen pads or foot sensors (B/T/C keys)
+    FSensorSeen: Boolean;        // a foot sensor key has arrived since start
     FPhase: TTreePhase;
     FRunning: Boolean;
-    FCountdownMs: Double;        // when the first amber lights
+    FCountdownMs: Double;        // when the first tree starts
+    FLaneStartMs: array[0..1] of Double; // when each lane's first amber lights
     FCars: array[0..1] of TCar;  // indexed by lane
     FRedLit: Boolean;            // red bulb in the user's lane
     FUserLaunched: Boolean;
@@ -198,20 +254,52 @@ type
     // settings screen
     FSettingsPanel: TRectangle;
     FSettingButtons: array[TSetting] of TTapButton;
+    FDialRow: TLayout;
+    FDialLabels: array[0..1] of TLabel;
+    FDialEdits: array[0..1] of TEdit; // 0 = you, 1 = other lane
+
+    // the car and the race
+    FCar: TCarSpec;              // the car both lanes drive
+    FCarPreset: Integer;         // the preset it started from
+    FRaceLength: TRaceLength;
+    FSurface: TSurface;
+    FImperial: Boolean;          // hp, lb, mph instead of kW, kg, km/h
+    FRuns: array[0..1] of TCarRun; // each lane's run down the track
+    FResultIdx: Integer;         // FResults entry of this run, -1 for none
+    FRaceDone: Boolean;
+    FWinLane: Integer;           // -1 none yet, 0 / 1 the lane, 2 a tie
+
+    // car screen
+    FCarPanel: TRectangle;
+    FCarValues: array[TCarField] of TLabel;
+    FCarCycles: array[TCarCycle] of TTapButton;
+    FCarEstimate: TLabel;
+    FRepeatTimer: TTimer;        // - / + held down: keep changing
+    FRepeatTag: Integer;
+
+    // time slip
+    FSlipPanel: TRectangle;
+    FSlipBox: TRectangle;
 
     // Android system bars (status bar, navigation bar), see ApplySystemInsets
     FInsetTimer: TTimer;
     FInsetTries: Integer;
 
     function NowMs: Double;
-    function GreenDueMs: Double;
+    function AmberGapMs: Double;
+    function TreeLengthMs: Double;
+    function GreenDueMs(Lane: Integer): Double;
+    function LastGreenMs: Double;
+    function HandicapDelayMs(Lane: Integer): Double;
     function OppLane: Integer;
     function PreStageLit(Lane: Integer): Boolean;
     function StageLit(Lane: Integer): Boolean;
-    function AmberLit(Index: Integer; T: Double): Boolean;
+    function AmberLit(Lane, Index: Integer; T: Double): Boolean;
     function GreenLit(Lane: Integer; T: Double): Boolean;
     function EffTrans: TTransMode;
     function EffThrottle: TThrottleMode;
+    function AllPedals: Boolean;
+    function KeyPedal(Key: Word; KeyChar: WideChar; out P: TPedal): Boolean;
     function PedalUsed(P: TPedal): Boolean;
     function CarHeld(const S: TPedals): Boolean;
     function CarReady(const S: TPedals): Boolean;
@@ -228,6 +316,28 @@ type
     procedure SettingButtonClick(Sender: TObject);
     procedure SettingsDoneClick(Sender: TObject);
     procedure UpdateSettingsTexts;
+    function CarTitle: string;
+    function PowerText(KW: Double): string;
+    function WeightText(Kg: Double): string;
+    function SpeedText(Ms: Double): string;
+    procedure CreateCarPanel;
+    procedure UpdateCarTexts;
+    procedure ChangeCarField(F: TCarField; Dir: Integer);
+    procedure CarStepDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Single);
+    procedure CarStepUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Single);
+    procedure CarStepLeave(Sender: TObject);
+    procedure RepeatTimerTick(Sender: TObject);
+    procedure CarCycleClick(Sender: TObject);
+    procedure CarDoneClick(Sender: TObject);
+    procedure CreateSlipPanel;
+    procedure ShowSlip(const R: TRunResult; const Verdict: string;
+      VerdictColor: TAlphaColor);
+    procedure SlipDoneClick(Sender: TObject);
+    procedure FinishRace;
+    function TreeSpeedText: string;
+    procedure ReadDialEdits;
     procedure PadMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Single);
     procedure PadMouseUp(Sender: TObject; Button: TMouseButton;
@@ -331,6 +441,7 @@ const
   StageNames: array[TStageMode] of string = ('Auto', 'Manual');
   TransNames: array[TTransMode] of string = ('Auto', 'Manual');
   ThrottleNames: array[TThrottleMode] of string = ('Auto', 'Manual');
+  PedalInputNames: array[TPedalInput] of string = ('On-screen pads', 'Foot sensors');
 
 {$IFDEF MSWINDOWS}
 const
@@ -355,6 +466,42 @@ end;
 function FormatSecs(Ms: Double): string;
 begin
   Result := Format('%.3f', [Ms / 1000], TFormatSettings.Invariant);
+end;
+
+function FormatET(S: Double): string;
+begin
+  Result := Format('%.3f', [S], TFormatSettings.Invariant);
+end;
+
+function IniFloat(Ini: TMemIniFile; const Section, Key: string;
+  Def: Double): Double;
+begin
+  // always with a full stop, whatever the phone's language
+  Result := StrToFloatDef(Ini.ReadString(Section, Key, ''), Def,
+    TFormatSettings.Invariant);
+end;
+
+procedure IniWriteFloat(Ini: TMemIniFile; const Section, Key: string;
+  Value: Double);
+begin
+  Ini.WriteString(Section, Key, FloatToStr(Value, TFormatSettings.Invariant));
+end;
+
+function FormatDial(Hundredths: Integer): string;
+begin
+  Result := Format('%.2f', [Hundredths / 100], TFormatSettings.Invariant);
+end;
+
+function ParseDial(const S: string; Default: Integer): Integer;
+var
+  V: Double;
+begin
+  // accepts 12.5, 12.50 or 12,50
+  if TryStrToFloat(StringReplace(Trim(S), ',', '.', [rfReplaceAll]), V,
+    TFormatSettings.Invariant) then
+    Result := EnsureRange(Round(V * 100), MinDialIn, MaxDialIn)
+  else
+    Result := Default;
 end;
 
 function DimColor(C: TAlphaColor; F: Single): TAlphaColor;
@@ -478,6 +625,10 @@ procedure TfrmMain.FormCreate(Sender: TObject);
 begin
   Randomize;
   FResults := TList<TRunResult>.Create;
+  FRuns[0] := TCarRun.Create;
+  FRuns[1] := TCarRun.Create;
+  FResultIdx := -1;
+  FWinLane := -1;
   FWatch := TStopwatch.StartNew;
   FMultiTouch := HasMultiTouch;
   FitDesktopWindow;
@@ -492,6 +643,11 @@ begin
   FRevTimer.OnTimer := RevTimerTick;
   FRevTimer.Enabled := True;
   CreateSettingsPanel;
+  CreateCarPanel;
+  CreateSlipPanel;
+  FRepeatTimer := TTimer.Create(Self);
+  FRepeatTimer.Enabled := False;
+  FRepeatTimer.OnTimer := RepeatTimerTick;
   ResetTree;
   UpdateStats;
 {$IFDEF ANDROID}
@@ -595,6 +751,8 @@ end;
 
 procedure TfrmMain.FormDestroy(Sender: TObject);
 begin
+  FRuns[0].Free;
+  FRuns[1].Free;
   FResults.Free;
 end;
 
@@ -607,7 +765,18 @@ begin
   FStageMode := smAuto;
   FTransMode := trAuto;
   FThrottleMode := thAuto;
+  FPedalInput := piScreen;
   FUserLane := 0;
+  FCarPreset := 4; // V8 sedan
+  FCar := Presets[FCarPreset];
+  FRaceLength := rlQuarter;
+  FSurface := sfPrepped;
+  FImperial := False;
+  FTreeSpeed := 0;
+  FStartDelay := 0;
+  FHandicap := False;
+  FYourDial := DefaultYourDial;
+  FOtherDial := DefaultOtherDial;
   FileName := SettingsFile;
   if (FileName = '') or not System.IOUtils.TFile.Exists(FileName) then
     Exit;
@@ -622,7 +791,43 @@ begin
         Ord(Low(TTransMode)), Ord(High(TTransMode))));
       FThrottleMode := TThrottleMode(EnsureRange(Ini.ReadInteger('Options', 'Throttle', 0),
         Ord(Low(TThrottleMode)), Ord(High(TThrottleMode))));
+      FPedalInput := TPedalInput(EnsureRange(Ini.ReadInteger('Options', 'PedalInput', 0),
+        Ord(Low(TPedalInput)), Ord(High(TPedalInput))));
       FUserLane := EnsureRange(Ini.ReadInteger('Options', 'Lane', 0), 0, 1);
+      FRaceLength := TRaceLength(EnsureRange(Ini.ReadInteger('Options', 'Length',
+        Ord(rlQuarter)), Ord(Low(TRaceLength)), Ord(High(TRaceLength))));
+      FSurface := TSurface(EnsureRange(Ini.ReadInteger('Options', 'Surface', 0),
+        Ord(Low(TSurface)), Ord(High(TSurface))));
+      FImperial := Ini.ReadBool('Options', 'Imperial', False);
+
+      // the car: a preset, then whatever was changed on the Car screen
+      FCarPreset := EnsureRange(Ini.ReadInteger('Car', 'Preset', FCarPreset),
+        0, PresetCount - 1);
+      FCar := Presets[FCarPreset];
+      FCar.PowerKW := EnsureRange(IniFloat(Ini, 'Car', 'PowerKW', FCar.PowerKW), 20.0, 5000.0);
+      FCar.WeightKg := EnsureRange(IniFloat(Ini, 'Car', 'WeightKg', FCar.WeightKg), 100.0, 4000.0);
+      FCar.Drive := TDrive(EnsureRange(Ini.ReadInteger('Car', 'Drive', Ord(FCar.Drive)),
+        Ord(Low(TDrive)), Ord(High(TDrive))));
+      FCar.Tyres := TTyres(EnsureRange(Ini.ReadInteger('Car', 'Tyres', Ord(FCar.Tyres)),
+        Ord(Low(TTyres)), Ord(High(TTyres))));
+      FCar.Turbo := Ini.ReadBool('Car', 'Turbo', FCar.Turbo);
+      FCar.Gears := EnsureRange(Ini.ReadInteger('Car', 'Gears', FCar.Gears), 1, MaxGears);
+      FCar.FinalDrive := EnsureRange(IniFloat(Ini, 'Car', 'FinalDrive', FCar.FinalDrive), 1.5, 8.0);
+      FCar.ShiftRpm := EnsureRange(IniFloat(Ini, 'Car', 'ShiftRpm', FCar.ShiftRpm),
+        1500.0, FCar.RevLimit);
+      FCar.LaunchRpm := EnsureRange(IniFloat(Ini, 'Car', 'LaunchRpm', FCar.LaunchRpm),
+        1000.0, FCar.RevLimit - 100);
+      FCar.StallRpm := EnsureRange(IniFloat(Ini, 'Car', 'StallRpm', FCar.StallRpm),
+        1000.0, FCar.RevLimit - 500);
+      FTreeSpeed := EnsureRange(Ini.ReadInteger('Options', 'TreeSpeed', 0),
+        Low(TreeSpeedsMs), High(TreeSpeedsMs));
+      FStartDelay := EnsureRange(Ini.ReadInteger('Options', 'StartDelay', 0),
+        Low(StartDelayNames), High(StartDelayNames));
+      FHandicap := Ini.ReadBool('Options', 'Handicap', False);
+      FYourDial := EnsureRange(Ini.ReadInteger('Options', 'YourDial',
+        DefaultYourDial), MinDialIn, MaxDialIn);
+      FOtherDial := EnsureRange(Ini.ReadInteger('Options', 'OtherDial',
+        DefaultOtherDial), MinDialIn, MaxDialIn);
     finally
       Ini.Free;
     end;
@@ -646,7 +851,27 @@ begin
       Ini.WriteInteger('Options', 'Staging', Ord(FStageMode));
       Ini.WriteInteger('Options', 'Trans', Ord(FTransMode));
       Ini.WriteInteger('Options', 'Throttle', Ord(FThrottleMode));
+      Ini.WriteInteger('Options', 'PedalInput', Ord(FPedalInput));
       Ini.WriteInteger('Options', 'Lane', FUserLane);
+      Ini.WriteInteger('Options', 'Length', Ord(FRaceLength));
+      Ini.WriteInteger('Options', 'Surface', Ord(FSurface));
+      Ini.WriteBool('Options', 'Imperial', FImperial);
+      Ini.WriteInteger('Car', 'Preset', FCarPreset);
+      IniWriteFloat(Ini, 'Car', 'PowerKW', FCar.PowerKW);
+      IniWriteFloat(Ini, 'Car', 'WeightKg', FCar.WeightKg);
+      Ini.WriteInteger('Car', 'Drive', Ord(FCar.Drive));
+      Ini.WriteInteger('Car', 'Tyres', Ord(FCar.Tyres));
+      Ini.WriteBool('Car', 'Turbo', FCar.Turbo);
+      Ini.WriteInteger('Car', 'Gears', FCar.Gears);
+      IniWriteFloat(Ini, 'Car', 'FinalDrive', FCar.FinalDrive);
+      IniWriteFloat(Ini, 'Car', 'ShiftRpm', FCar.ShiftRpm);
+      IniWriteFloat(Ini, 'Car', 'LaunchRpm', FCar.LaunchRpm);
+      IniWriteFloat(Ini, 'Car', 'StallRpm', FCar.StallRpm);
+      Ini.WriteInteger('Options', 'TreeSpeed', FTreeSpeed);
+      Ini.WriteInteger('Options', 'StartDelay', FStartDelay);
+      Ini.WriteBool('Options', 'Handicap', FHandicap);
+      Ini.WriteInteger('Options', 'YourDial', FYourDial);
+      Ini.WriteInteger('Options', 'OtherDial', FOtherDial);
       Ini.UpdateFile;
     finally
       Ini.Free;
@@ -666,12 +891,58 @@ begin
   Result := 1 - FUserLane;
 end;
 
-function TfrmMain.GreenDueMs: Double;
+function TfrmMain.AmberGapMs: Double;
 begin
-  if FTreeMode = tmPro then
-    Result := FCountdownMs + ProAmberMs
+  // Pro: how long the ambers are on before the green.
+  // Sportsman: the time between one bulb and the next.
+  if TreeSpeedsMs[FTreeSpeed] > 0 then
+    Result := TreeSpeedsMs[FTreeSpeed]
+  else if FTreeMode = tmPro then
+    Result := ProAmberMs
   else
-    Result := FCountdownMs + 3 * SportAmberMs;
+    Result := SportAmberMs;
+end;
+
+function TfrmMain.TreeLengthMs: Double;
+begin
+  // first amber to green
+  if FTreeMode = tmPro then
+    Result := AmberGapMs
+  else
+    Result := 3 * AmberGapMs;
+end;
+
+function TfrmMain.HandicapDelayMs(Lane: Integer): Double;
+var
+  Mine, Theirs: Integer;
+begin
+  // The car with the bigger dial-in (the slower one) gets its tree first;
+  // the faster car waits for the difference.
+  Result := 0;
+  if not FHandicap then
+    Exit;
+  if Lane = FUserLane then
+  begin
+    Mine := FYourDial;
+    Theirs := FOtherDial;
+  end
+  else
+  begin
+    Mine := FOtherDial;
+    Theirs := FYourDial;
+  end;
+  if Mine < Theirs then
+    Result := (Theirs - Mine) * 10.0; // hundredths of a second to ms
+end;
+
+function TfrmMain.GreenDueMs(Lane: Integer): Double;
+begin
+  Result := FLaneStartMs[Lane] + TreeLengthMs;
+end;
+
+function TfrmMain.LastGreenMs: Double;
+begin
+  Result := Max(GreenDueMs(0), GreenDueMs(1));
 end;
 
 function TfrmMain.PreStageLit(Lane: Integer): Boolean;
@@ -684,7 +955,7 @@ begin
   Result := (FCars[Lane].Pos >= StageBeamIn) and (FCars[Lane].Pos < TooFarIn);
 end;
 
-function TfrmMain.AmberLit(Index: Integer; T: Double): Boolean;
+function TfrmMain.AmberLit(Lane, Index: Integer; T: Double): Boolean;
 var
   Start: Double;
 begin
@@ -692,27 +963,33 @@ begin
   if not (FPhase in [tpCountdown, tpGreen]) then
     Exit;
   if FTreeMode = tmPro then
-    Result := (T >= FCountdownMs) and (T < FCountdownMs + ProAmberMs)
+    Result := (T >= FLaneStartMs[Lane]) and (T < GreenDueMs(Lane))
   else
   begin
-    // Sportsman: top to bottom, each one on for 0.5 s
-    Start := FCountdownMs + Index * SportAmberMs;
-    Result := (T >= Start) and (T < Start + SportAmberMs);
+    // Sportsman: top to bottom, each one on for one amber time
+    Start := FLaneStartMs[Lane] + Index * AmberGapMs;
+    Result := (T >= Start) and (T < Start + AmberGapMs);
   end;
 end;
 
 function TfrmMain.GreenLit(Lane: Integer; T: Double): Boolean;
 begin
-  Result := (FPhase in [tpCountdown, tpGreen]) and (T >= GreenDueMs);
+  Result := (FPhase in [tpCountdown, tpGreen]) and (T >= GreenDueMs(Lane));
   if (Lane = FUserLane) and FRedLit then
     Result := False;
 end;
 
 { ---- pedals ---- }
 
+function TfrmMain.AllPedals: Boolean;
+begin
+  // clutch and throttle need two fingers at once on screen, or foot sensors
+  Result := FMultiTouch or (FPedalInput = piSensors);
+end;
+
 function TfrmMain.EffTrans: TTransMode;
 begin
-  if FMultiTouch then
+  if AllPedals then
     Result := FTransMode
   else
     Result := trAuto;
@@ -720,7 +997,7 @@ end;
 
 function TfrmMain.EffThrottle: TThrottleMode;
 begin
-  if FMultiTouch then
+  if AllPedals then
     Result := FThrottleMode
   else
     Result := thAuto;
@@ -941,18 +1218,45 @@ begin
   PadMouseUp(Sender, TMouseButton.mbLeft, [], 0, 0);
 end;
 
+function TfrmMain.KeyPedal(Key: Word; KeyChar: WideChar;
+  out P: TPedal): Boolean;
+begin
+  // Space or B = brake, T = throttle, C = clutch. Platforms differ in what
+  // they fill in (Windows sends Key on key down and key up and KeyChar only
+  // on key down; Android may send either), so check both.
+  Result := True;
+  if (KeyChar = ' ') or (Key = vkSpace) or (KeyChar = 'b') or (KeyChar = 'B')
+    or (Key = vkB) then
+    P := pdBrake
+  else if (KeyChar = 't') or (KeyChar = 'T') or (Key = vkT) then
+    P := pdThrottle
+  else if (KeyChar = 'c') or (KeyChar = 'C') or (Key = vkC) then
+    P := pdClutch
+  else
+    Result := False;
+end;
+
 procedure TfrmMain.FormKeyDown(Sender: TObject; var Key: Word;
   var KeyChar: WideChar; Shift: TShiftState);
 var
   T: Double;
+  P: TPedal;
+  IsSpace: Boolean;
 begin
   T := NowMs;
-  // Windows: Space is the brake, Enter starts a run
-  if (KeyChar = ' ') or (Key = vkSpace) then
+  IsSpace := (KeyChar = ' ') or (Key = vkSpace);
+  // pedal keys (foot sensors, or Space on Windows), Enter starts a run
+  if KeyPedal(Key, KeyChar, P) then
   begin
-    if not (pdBrake in FKeyPedals) then
+    // a held key repeats: only the first key down counts
+    if not (P in FKeyPedals) then
     begin
-      Include(FKeyPedals, pdBrake);
+      Include(FKeyPedals, P);
+      if not IsSpace and not FSensorSeen then
+      begin
+        FSensorSeen := True; // B, T or C: a foot sensor board is plugged in
+        UpdateSettingsTexts;
+      end;
       PedalsChanged(T);
     end;
     KeyChar := #0;
@@ -967,18 +1271,31 @@ end;
 
 procedure TfrmMain.FormKeyUp(Sender: TObject; var Key: Word;
   var KeyChar: WideChar; Shift: TShiftState);
+var
+  T: Double;
+  P: TPedal;
 begin
-  // Android Back button closes Settings instead of quitting the app
-  if (Key = vkHardwareBack) and FSettingsPanel.Visible then
+  T := NowMs;
+  // Android Back button closes the top panel instead of quitting the app
+  if Key = vkHardwareBack then
   begin
-    SettingsDoneClick(nil);
+    if FSlipPanel.Visible then
+      SlipDoneClick(nil)
+    else if FCarPanel.Visible then
+      CarDoneClick(nil)
+    else if FSettingsPanel.Visible then
+      SettingsDoneClick(nil)
+    else
+      Exit; // nothing open: Android goes back as usual
     Key := 0;
     Exit;
   end;
-  if (KeyChar = ' ') or (Key = vkSpace) then
+  if KeyPedal(Key, KeyChar, P) then
   begin
-    Exclude(FKeyPedals, pdBrake);
-    PedalsChanged(NowMs);
+    Exclude(FKeyPedals, P);
+    PedalsChanged(T);
+    KeyChar := #0;
+    Key := 0;
   end;
 end;
 
@@ -988,7 +1305,10 @@ var
   P: TPedal;
 begin
   Old := FPressed;
-  New := FTouchPedals + FMousePedals + FKeyPedals;
+  if FPedalInput = piSensors then
+    New := FKeyPedals // the screen only shows the feet, a stray touch does nothing
+  else
+    New := FTouchPedals + FMousePedals + FKeyPedals;
   for P := Low(TPedal) to High(TPedal) do
     if not PedalUsed(P) then
       Exclude(New, P);
@@ -1026,12 +1346,14 @@ end;
 
 procedure TfrmMain.CreateSettingsPanel;
 const
-  RowH = 52;
+  RowH = 46;
 var
+  Scroll: TVertScrollBox;
   Box: TLayout;
   Title: TLabel;
   Done: TTapButton;
   S: TSetting;
+  I: Integer;
 begin
   FSettingsPanel := TRectangle.Create(Self);
   FSettingsPanel.Parent := Self;
@@ -1042,11 +1364,19 @@ begin
   FSettingsPanel.HitTest := True; // swallow taps behind the panel
   FSettingsPanel.Visible := False;
 
+  // there are more rows than a small phone can show, so they scroll
+  Scroll := TVertScrollBox.Create(Self);
+  Scroll.Parent := FSettingsPanel;
+  Scroll.Align := TAlignLayout.Client;
+
   Box := TLayout.Create(Self);
-  Box.Parent := FSettingsPanel;
-  Box.Align := TAlignLayout.Center;
-  Box.Width := 300;
-  Box.Height := RowH * (Ord(High(TSetting)) + 3) + 16;
+  Box.Parent := Scroll;
+  Box.Align := TAlignLayout.Top;
+  Box.Margins.Left := 16;
+  Box.Margins.Right := 16;
+  Box.Margins.Top := 8;
+  // title, one row per setting, the dial-in row, Done
+  Box.Height := RowH * (Ord(High(TSetting)) + 4) + 16;
 
   Title := TLabel.Create(Self);
   Title.Parent := Box;
@@ -1065,13 +1395,66 @@ begin
     FSettingButtons[S].Tag := Ord(S);
   end;
 
+  // handicap dial-ins: "You [12.50]  Other [11.80]"
+  FDialRow := TLayout.Create(Self);
+  FDialRow.Parent := Box;
+  FDialRow.Align := TAlignLayout.Top;
+  FDialRow.Position.Y := RowH * (Ord(High(TSetting)) + 2);
+  FDialRow.Height := RowH - 8;
+  FDialRow.Margins.Bottom := 8;
+  for I := 0 to 1 do
+  begin
+    FDialLabels[I] := TLabel.Create(Self);
+    FDialLabels[I].Parent := FDialRow;
+    FDialLabels[I].SetBounds(I * 150, 0, 64, RowH - 8);
+    if I = 0 then
+      FDialLabels[I].Text := 'You'
+    else
+      FDialLabels[I].Text := 'Other';
+    StyleLabel(FDialLabels[I], 15, clrText, True, TTextAlign.Trailing);
+    FDialLabels[I].TextSettings.VertAlign := TTextAlign.Center;
+
+    FDialEdits[I] := TEdit.Create(Self);
+    FDialEdits[I].Parent := FDialRow;
+    FDialEdits[I].SetBounds(I * 150 + 70, 4, 76, RowH - 16);
+    FDialEdits[I].KeyboardType := TVirtualKeyboardType.DecimalNumberPad;
+    FDialEdits[I].ReturnKeyType := TReturnKeyType.Done;
+    FDialEdits[I].MaxLength := 6;
+    FDialEdits[I].TextSettings.HorzAlign := TTextAlign.Center;
+  end;
+  FDialEdits[0].Text := FormatDial(FYourDial);
+  FDialEdits[1].Text := FormatDial(FOtherDial);
+
   Done := MakeButton(Box, 'Done', clrBtnSettings, SettingsDoneClick);
   Done.Align := TAlignLayout.Top;
-  Done.Position.Y := RowH * (Ord(High(TSetting)) + 2);
+  Done.Position.Y := RowH * (Ord(High(TSetting)) + 3);
   Done.Height := RowH - 8;
   Done.Margins.Top := 8;
 
   UpdateSettingsTexts;
+end;
+
+function TfrmMain.TreeSpeedText: string;
+begin
+  if TreeSpeedsMs[FTreeSpeed] = 0 then
+  begin
+    if FTreeMode = tmPro then
+      Result := 'NHRA 0.400 s'
+    else
+      Result := 'NHRA 0.500 s';
+  end
+  else
+    Result := FormatSecs(TreeSpeedsMs[FTreeSpeed]) + ' s';
+end;
+
+procedure TfrmMain.ReadDialEdits;
+begin
+  if FDialEdits[0] = nil then
+    Exit;
+  FYourDial := ParseDial(FDialEdits[0].Text, FYourDial);
+  FOtherDial := ParseDial(FDialEdits[1].Text, FOtherDial);
+  FDialEdits[0].Text := FormatDial(FYourDial);
+  FDialEdits[1].Text := FormatDial(FOtherDial);
 end;
 
 procedure TfrmMain.UpdateSettingsTexts;
@@ -1079,27 +1462,65 @@ const
   NeedsTouch = ' (needs multi-touch)';
 var
   Summary: string;
+  I: Integer;
 begin
   FSettingButtons[stTree].Text := 'Tree: ' + TreeNames[FTreeMode];
+  FSettingButtons[stSpeed].Text := 'Tree speed: ' + TreeSpeedText;
+  FSettingButtons[stDelay].Text := 'Start delay: ' + StartDelayNames[FStartDelay];
+  if FHandicap then
+    FSettingButtons[stHandicap].Text := 'Handicap (dial-in): On'
+  else
+    FSettingButtons[stHandicap].Text := 'Handicap (dial-in): Off';
+  if FDialEdits[0] <> nil then
+    for I := 0 to 1 do
+    begin
+      FDialEdits[I].Enabled := FHandicap;
+      if FHandicap then
+        FDialLabels[I].Opacity := 1
+      else
+        FDialLabels[I].Opacity := 0.4;
+    end;
   FSettingButtons[stLane].Text := 'Lane: ' + LaneNames[FUserLane];
   FSettingButtons[stStaging].Text := 'Staging: ' + StageNames[FStageMode];
+  FSettingButtons[stPedalInput].Text := 'Pedal input: ' + PedalInputNames[FPedalInput];
   FSettingButtons[stTrans].Text := 'Transmission: ' + TransNames[EffTrans];
   FSettingButtons[stThrottle].Text := 'Throttle: ' + ThrottleNames[EffThrottle];
-  if not FMultiTouch then
+  if not AllPedals then
   begin
     FSettingButtons[stTrans].Text := FSettingButtons[stTrans].Text + NeedsTouch;
     FSettingButtons[stThrottle].Text := FSettingButtons[stThrottle].Text + NeedsTouch;
   end;
-  FSettingButtons[stTrans].Enabled := FMultiTouch;
-  FSettingButtons[stThrottle].Enabled := FMultiTouch;
+  FSettingButtons[stTrans].Enabled := AllPedals;
+  FSettingButtons[stThrottle].Enabled := AllPedals;
 
-  Summary := Format('%s tree, %s lane, %s staging', [TreeNames[FTreeMode],
-    LowerCase(LaneNames[FUserLane]), LowerCase(StageNames[FStageMode])]);
-  if FMultiTouch then
+  FSettingButtons[stCar].Text := 'Car: ' + CarTitle + '  >';
+  FSettingButtons[stLength].Text := 'Race: ' + RaceLengthNames[FRaceLength];
+  FSettingButtons[stSurface].Text := 'Track: ' + SurfaceNames[FSurface];
+  if FImperial then
+    FSettingButtons[stUnits].Text := 'Units: hp, lb, mph'
+  else
+    FSettingButtons[stUnits].Text := 'Units: kW, kg, km/h';
+
+  Summary := Format('%s tree %s, %s lane, %s staging', [TreeNames[FTreeMode],
+    TreeSpeedText, LowerCase(LaneNames[FUserLane]),
+    LowerCase(StageNames[FStageMode])]);
+  if AllPedals then
     Summary := Summary + Format(', %s trans, %s throttle',
       [LowerCase(TransNames[EffTrans]), LowerCase(ThrottleNames[EffThrottle])])
   else
     Summary := Summary + ', brake only';
+  if FPedalInput = piSensors then
+  begin
+    if FSensorSeen then
+      Summary := Summary + ', foot sensors connected'
+    else
+      Summary := Summary + ', foot sensors (none yet: press a pedal)';
+  end;
+  if FHandicap then
+    Summary := Summary + Format(', dial-in %s vs %s',
+      [FormatDial(FYourDial), FormatDial(FOtherDial)]);
+  Summary := Summary + sLineBreak + Format('%s, %s, %s', [CarTitle,
+    RaceLengthNames[FRaceLength], LowerCase(SurfaceNames[FSurface])]);
   lblSummary.Text := Summary;
 end;
 
@@ -1108,17 +1529,472 @@ begin
   case TSetting(TComponent(Sender).Tag) of
     stTree:
       if FTreeMode = tmPro then FTreeMode := tmSportsman else FTreeMode := tmPro;
+    stSpeed:
+      if FTreeSpeed >= High(TreeSpeedsMs) then
+        FTreeSpeed := Low(TreeSpeedsMs)
+      else
+        Inc(FTreeSpeed);
+    stDelay:
+      if FStartDelay >= High(StartDelayNames) then
+        FStartDelay := Low(StartDelayNames)
+      else
+        Inc(FStartDelay);
+    stHandicap:
+      FHandicap := not FHandicap;
     stLane:
       FUserLane := 1 - FUserLane;
     stStaging:
       if FStageMode = smAuto then FStageMode := smManual else FStageMode := smAuto;
+    stPedalInput:
+      if FPedalInput = piScreen then FPedalInput := piSensors else FPedalInput := piScreen;
     stTrans:
       if FTransMode = trAuto then FTransMode := trManual else FTransMode := trAuto;
     stThrottle:
       if FThrottleMode = thAuto then FThrottleMode := thManual else FThrottleMode := thAuto;
+    stCar:
+      begin
+        ReadDialEdits;
+        SaveSettings;
+        UpdateCarTexts;
+        FCarPanel.Visible := True;
+        FCarPanel.BringToFront;
+        Exit;
+      end;
+    stLength:
+      FRaceLength := TRaceLength((Ord(FRaceLength) + 1) mod (Ord(High(TRaceLength)) + 1));
+    stSurface:
+      FSurface := TSurface((Ord(FSurface) + 1) mod (Ord(High(TSurface)) + 1));
+    stUnits:
+      FImperial := not FImperial;
   end;
+  ReadDialEdits;
   SaveSettings;
   UpdateSettingsTexts;
+end;
+
+{ ---- car screen ---- }
+
+const
+  KwToHp = 1.341022;
+  KgToLb = 2.204623;
+  MsToKmh = 3.6;
+  MsToMph = 2.236936;
+  InchesPerM = 39.3701;
+
+function TfrmMain.CarTitle: string;
+begin
+  Result := FCar.Name;
+  if not SpecsEqual(FCar, Presets[FCarPreset]) then
+    Result := Result + ' (modified)';
+end;
+
+function TfrmMain.PowerText(KW: Double): string;
+begin
+  if FImperial then
+    Result := Format('%d hp', [Round(KW * KwToHp)])
+  else
+    Result := Format('%d kW', [Round(KW)]);
+end;
+
+function TfrmMain.WeightText(Kg: Double): string;
+begin
+  if FImperial then
+    Result := Format('%d lb', [Round(Kg * KgToLb)])
+  else
+    Result := Format('%d kg', [Round(Kg)]);
+end;
+
+function TfrmMain.SpeedText(Ms: Double): string;
+begin
+  if FImperial then
+    Result := Format('%.1f mph', [Ms * MsToMph], TFormatSettings.Invariant)
+  else
+    Result := Format('%.1f km/h', [Ms * MsToKmh], TFormatSettings.Invariant);
+end;
+
+procedure TfrmMain.CreateCarPanel;
+const
+  RowH = 46;
+  Rows = 11;
+var
+  Box: TLayout;
+  Title: TLabel;
+  Row: TLayout;
+  Back: TRectangle;
+  B: TTapButton;
+  F: TCarField;
+  C: TCarCycle;
+  Y: Single;
+
+  function NewRow(H: Single): TLayout;
+  begin
+    Result := TLayout.Create(Self);
+    Result.Parent := Box;
+    Result.Align := TAlignLayout.Top;
+    Result.Position.Y := Y; // keeps the order
+    Result.Height := H - 6;
+    Result.Margins.Bottom := 6;
+    Y := Y + H;
+  end;
+
+  procedure Stepper(AF: TCarField);
+  begin
+    Row := NewRow(RowH);
+    B := MakeButton(Row, '-', clrBtnOption, nil);
+    B.Align := TAlignLayout.Left;
+    B.Width := 52;
+    B.Tag := Ord(AF) * 2;
+    B.OnMouseDown := CarStepDown;
+    B.OnMouseUp := CarStepUp;
+    B.OnMouseLeave := CarStepLeave;
+    B := MakeButton(Row, '+', clrBtnOption, nil);
+    B.Align := TAlignLayout.Right;
+    B.Width := 52;
+    B.Tag := Ord(AF) * 2 + 1;
+    B.OnMouseDown := CarStepDown;
+    B.OnMouseUp := CarStepUp;
+    B.OnMouseLeave := CarStepLeave;
+    Back := TRectangle.Create(Self);
+    Back.Parent := Row;
+    Back.Align := TAlignLayout.Client;
+    Back.Margins.Left := 6;
+    Back.Margins.Right := 6;
+    Back.XRadius := 10;
+    Back.YRadius := 10;
+    Back.Fill.Color := clrPanel;
+    Back.Stroke.Kind := TBrushKind.None;
+    Back.HitTest := False;
+    FCarValues[AF] := TLabel.Create(Self);
+    FCarValues[AF].Parent := Back;
+    FCarValues[AF].Align := TAlignLayout.Client;
+    StyleLabel(FCarValues[AF], 15, clrText, True, TTextAlign.Center);
+    FCarValues[AF].WordWrap := True;
+  end;
+
+begin
+  FCarPanel := TRectangle.Create(Self);
+  FCarPanel.Parent := Self;
+  FCarPanel.Align := TAlignLayout.Contents;
+  FCarPanel.Fill.Kind := TBrushKind.Solid;
+  FCarPanel.Fill.Color := clrBackground;
+  FCarPanel.Stroke.Kind := TBrushKind.None;
+  FCarPanel.HitTest := True; // swallow taps behind the panel
+  FCarPanel.Visible := False;
+
+  Box := TLayout.Create(Self);
+  Box.Parent := FCarPanel;
+  Box.Align := TAlignLayout.Center;
+  Box.Width := 320;
+  Box.Height := RowH * Rows + 16;
+  Y := 0;
+
+  Title := TLabel.Create(Self);
+  Title.Parent := Box;
+  Title.Align := TAlignLayout.Top;
+  Title.Height := RowH;
+  Title.Position.Y := Y;
+  Title.Text := 'Car';
+  StyleLabel(Title, 24, clrText, True, TTextAlign.Center);
+  Y := Y + RowH;
+
+  Stepper(cfPreset);
+  Stepper(cfPower);
+  Stepper(cfWeight);
+
+  // drive, engine and tyres: tap to change
+  Row := NewRow(RowH);
+  for C := Low(TCarCycle) to High(TCarCycle) do
+  begin
+    FCarCycles[C] := MakeButton(Row, '', clrBtnOption, CarCycleClick);
+    FCarCycles[C].Align := TAlignLayout.Left;
+    FCarCycles[C].Width := (Box.Width - 12) / 3;
+    FCarCycles[C].Tag := Ord(C);
+    if C <> Low(TCarCycle) then
+      FCarCycles[C].Margins.Left := 6;
+  end;
+
+  for F := cfGears to High(TCarField) do
+    Stepper(F);
+
+  Row := NewRow(RowH);
+  FCarEstimate := TLabel.Create(Self);
+  FCarEstimate.Parent := Row;
+  FCarEstimate.Align := TAlignLayout.Client;
+  StyleLabel(FCarEstimate, 13, clrSubtle, False, TTextAlign.Center);
+  FCarEstimate.WordWrap := True;
+
+  Row := NewRow(RowH);
+  B := MakeButton(Row, 'Done', clrBtnSettings, CarDoneClick);
+  B.Align := TAlignLayout.Client;
+end;
+
+procedure TfrmMain.UpdateCarTexts;
+var
+  ET, Trap: Double;
+  Gearbox: string;
+begin
+  FCarValues[cfPreset].Text := CarTitle;
+  FCarValues[cfPower].Text := 'Power ' + PowerText(FCar.PowerKW);
+  FCarValues[cfWeight].Text := 'Weight ' + WeightText(FCar.WeightKg);
+  if FCar.Gears = 1 then
+    FCarValues[cfGears].Text := '1 gear'
+  else
+    FCarValues[cfGears].Text := Format('%d gears', [FCar.Gears]);
+  FCarValues[cfFinal].Text := Format('Final drive %.2f', [FCar.FinalDrive],
+    TFormatSettings.Invariant);
+  FCarValues[cfShift].Text := Format('Shift at %d rpm', [Round(FCar.ShiftRpm)]);
+  if EffTrans = trManual then
+    FCarValues[cfLaunch].Text := Format('Launch at %d rpm', [Round(FCar.LaunchRpm)])
+  else
+    FCarValues[cfLaunch].Text := Format('Stall speed %d rpm', [Round(FCar.StallRpm)]);
+
+  FCarCycles[ccDrive].Text := DriveNames[FCar.Drive];
+  if FCar.Turbo then
+    FCarCycles[ccEngine].Text := 'Turbo'
+  else
+    FCarCycles[ccEngine].Text := 'No turbo';
+  FCarCycles[ccTyres].Text := TyreNames[FCar.Tyres];
+
+  // a good full-throttle run, so you can see what a change does
+  EstimateRun(FCar, EffTrans = trManual, FSurface, FRaceLength, ET, Trap);
+  Gearbox := LowerCase(TransNames[EffTrans]);
+  if ET > 0 then
+    FCarEstimate.Text := Format('Best run: %s in %s s at %s',
+      [RaceLengthNames[FRaceLength], FormatET(ET), SpeedText(Trap)]) +
+      sLineBreak + Format('(%s, %s gearbox)', [LowerCase(SurfaceNames[FSurface]), Gearbox])
+  else
+    FCarEstimate.Text := 'Too slow to reach the finish line';
+end;
+
+procedure TfrmMain.ChangeCarField(F: TCarField; Dir: Integer);
+var
+  V, St: Double;
+begin
+  case F of
+    cfPreset:
+      begin
+        FCarPreset := (FCarPreset + Dir + PresetCount) mod PresetCount;
+        FCar := Presets[FCarPreset];
+      end;
+    cfPower:
+      begin
+        // steps in the units shown, bigger for big numbers
+        if FImperial then V := FCar.PowerKW * KwToHp else V := FCar.PowerKW;
+        if V < 250 then St := 5 else if V < 1300 then St := 10 else St := 50;
+        V := Round(V / St) * St + Dir * St;
+        if FImperial then V := V / KwToHp;
+        FCar.PowerKW := EnsureRange(V, 20.0, 5000.0);
+      end;
+    cfWeight:
+      begin
+        if FImperial then
+        begin
+          V := FCar.WeightKg * KgToLb;
+          if V < 1300 then St := 10 else St := 50;
+          FCar.WeightKg := EnsureRange((Round(V / St) * St + Dir * St) / KgToLb, 100.0, 4000.0);
+        end
+        else
+        begin
+          V := FCar.WeightKg;
+          if V < 600 then St := 5 else St := 25;
+          FCar.WeightKg := EnsureRange(Round(V / St) * St + Dir * St, 100.0, 4000.0);
+        end;
+      end;
+    cfGears:
+      FCar.Gears := EnsureRange(FCar.Gears + Dir, 1, MaxGears);
+    cfFinal:
+      FCar.FinalDrive := EnsureRange((Round(FCar.FinalDrive * 20) + Dir) / 20, 1.5, 8.0);
+    cfShift:
+      FCar.ShiftRpm := EnsureRange(Round(FCar.ShiftRpm / 100) * 100.0 + Dir * 100.0,
+        1500.0, FCar.RevLimit);
+    cfLaunch:
+      if EffTrans = trManual then
+        FCar.LaunchRpm := EnsureRange(Round(FCar.LaunchRpm / 100) * 100.0 + Dir * 100.0,
+          1000.0, FCar.RevLimit - 100)
+      else
+        FCar.StallRpm := EnsureRange(Round(FCar.StallRpm / 100) * 100.0 + Dir * 100.0,
+          1000.0, FCar.RevLimit - 500);
+  end;
+  SaveSettings;
+  UpdateCarTexts;
+end;
+
+procedure TfrmMain.CarStepDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+var
+  Dir: Integer;
+begin
+  // change once now, then keep going while the button is held
+  FRepeatTag := TComponent(Sender).Tag;
+  if Odd(FRepeatTag) then Dir := 1 else Dir := -1;
+  ChangeCarField(TCarField(FRepeatTag div 2), Dir);
+  FRepeatTimer.Interval := 450;
+  FRepeatTimer.Enabled := True;
+end;
+
+procedure TfrmMain.CarStepUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Single);
+begin
+  FRepeatTimer.Enabled := False;
+end;
+
+procedure TfrmMain.CarStepLeave(Sender: TObject);
+begin
+  FRepeatTimer.Enabled := False;
+end;
+
+procedure TfrmMain.RepeatTimerTick(Sender: TObject);
+var
+  Dir: Integer;
+begin
+  FRepeatTimer.Interval := 70;
+  if Odd(FRepeatTag) then Dir := 1 else Dir := -1;
+  ChangeCarField(TCarField(FRepeatTag div 2), Dir);
+end;
+
+procedure TfrmMain.CarCycleClick(Sender: TObject);
+begin
+  case TCarCycle(TComponent(Sender).Tag) of
+    ccDrive:
+      FCar.Drive := TDrive((Ord(FCar.Drive) + 1) mod (Ord(High(TDrive)) + 1));
+    ccEngine:
+      FCar.Turbo := not FCar.Turbo;
+    ccTyres:
+      FCar.Tyres := TTyres((Ord(FCar.Tyres) + 1) mod (Ord(High(TTyres)) + 1));
+  end;
+  SaveSettings;
+  UpdateCarTexts;
+end;
+
+procedure TfrmMain.CarDoneClick(Sender: TObject);
+begin
+  FRepeatTimer.Enabled := False;
+  FCarPanel.Visible := False;
+  UpdateSettingsTexts;
+end;
+
+{ ---- time slip ---- }
+
+procedure TfrmMain.CreateSlipPanel;
+begin
+  FSlipPanel := TRectangle.Create(Self);
+  FSlipPanel.Parent := Self;
+  FSlipPanel.Align := TAlignLayout.Contents;
+  FSlipPanel.Fill.Kind := TBrushKind.Solid;
+  FSlipPanel.Fill.Color := TAlphaColor($C0000000);
+  FSlipPanel.Stroke.Kind := TBrushKind.None;
+  FSlipPanel.HitTest := True;
+  FSlipPanel.Visible := False;
+
+  FSlipBox := TRectangle.Create(Self);
+  FSlipBox.Parent := FSlipPanel;
+  FSlipBox.Align := TAlignLayout.Center;
+  FSlipBox.Width := 320;
+  FSlipBox.Height := 300;
+  FSlipBox.XRadius := 12;
+  FSlipBox.YRadius := 12;
+  FSlipBox.Fill.Color := clrPanel;
+  FSlipBox.Stroke.Color := clrSubtle;
+  FSlipBox.Padding.Rect := RectF(12, 8, 12, 12);
+end;
+
+procedure TfrmMain.ShowSlip(const R: TRunResult; const Verdict: string;
+  VerdictColor: TAlphaColor);
+const
+  RowH = 24;
+var
+  Y: Single;
+  S, Last: TSplit;
+  Opp: Integer;
+  OK: TTapButton;
+  L: TLabel;
+
+  function AddLabel(AParent: TFmxObject; const Text: string; AAlign: TAlignLayout;
+    W: Single; Color: TAlphaColor; Bold: Boolean; HAlign: TTextAlign): TLabel;
+  begin
+    Result := TLabel.Create(Self);
+    Result.Parent := AParent;
+    Result.Align := AAlign;
+    if W > 0 then
+      Result.Width := W;
+    Result.Text := Text;
+    StyleLabel(Result, 14, Color, Bold, HAlign);
+  end;
+
+  procedure AddRow(const Caption, You, Other: string; Bold: Boolean);
+  var
+    Row: TLayout;
+  begin
+    Row := TLayout.Create(Self);
+    Row.Parent := FSlipBox;
+    Row.Align := TAlignLayout.Top;
+    Row.Position.Y := Y;
+    Row.Height := RowH;
+    Y := Y + RowH;
+    AddLabel(Row, Caption, TAlignLayout.Left, 96, clrSubtle, Bold, TTextAlign.Leading);
+    AddLabel(Row, Other, TAlignLayout.Right, 92, clrOpponent, Bold, TTextAlign.Trailing);
+    AddLabel(Row, You, TAlignLayout.Client, 0, clrYou, Bold, TTextAlign.Trailing);
+  end;
+
+  function SplitText(Lane: Integer; Sp: TSplit): string;
+  begin
+    if FRuns[Lane].SplitTime[Sp] > 0 then
+      Result := FormatET(FRuns[Lane].SplitTime[Sp])
+    else
+      Result := '-';
+  end;
+
+  function SplitSpeed(Lane: Integer; Sp: TSplit): string;
+  begin
+    if FRuns[Lane].SplitTime[Sp] > 0 then
+      Result := SpeedText(FRuns[Lane].SplitSpeed[Sp])
+    else
+      Result := '-';
+  end;
+
+begin
+  Opp := OppLane;
+  FSlipBox.DeleteChildren;
+  Y := 0;
+
+  L := AddLabel(FSlipBox, 'TIME SLIP', TAlignLayout.Top, 0, clrText, True,
+    TTextAlign.Center);
+  L.Height := 34;
+  Y := 34;
+  AddRow(SurfaceNames[FSurface], 'YOU', 'OTHER', True);
+  if R.Handicap then
+    AddRow('Dial-in', FormatDial(FYourDial), FormatDial(FOtherDial), False);
+  AddRow('Reaction', FormatSecs(R.ReactionMs), FormatSecs(R.OppReactionMs), False);
+  Last := RaceSplit[FRaceLength];
+  for S := Low(TSplit) to Last do
+  begin
+    AddRow(SplitNames[S], SplitText(FUserLane, S), SplitText(Opp, S), S = Last);
+    if (S = spEighth) or (S = Last) then
+      AddRow('  speed', SplitSpeed(FUserLane, S), SplitSpeed(Opp, S), False);
+  end;
+
+  L := AddLabel(FSlipBox, Verdict, TAlignLayout.Top, 0, VerdictColor, True,
+    TTextAlign.Center);
+  L.Position.Y := Y;
+  L.Height := 44;
+  L.TextSettings.Font.Size := 18;
+  L.WordWrap := True;
+  Y := Y + 44;
+
+  OK := MakeButton(FSlipBox, 'OK', clrBtnSettings, SlipDoneClick);
+  OK.Align := TAlignLayout.Top;
+  OK.Position.Y := Y;
+  OK.Height := 44;
+  Y := Y + 44;
+
+  FSlipBox.Height := Y + FSlipBox.Padding.Top + FSlipBox.Padding.Bottom;
+  FSlipPanel.Visible := True;
+  FSlipPanel.BringToFront;
+end;
+
+procedure TfrmMain.SlipDoneClick(Sender: TObject);
+begin
+  FSlipPanel.Visible := False;
 end;
 
 procedure TfrmMain.btnSettingsClick(Sender: TObject);
@@ -1132,6 +2008,10 @@ end;
 
 procedure TfrmMain.SettingsDoneClick(Sender: TObject);
 begin
+  // the dial-in boxes may still be being edited
+  Focused := nil;
+  ReadDialEdits;
+  SaveSettings;
   FSettingsPanel.Visible := False;
   // pedal set may have changed
   FTouchPedals := [];
@@ -1254,6 +2134,13 @@ begin
   FRunning := False;
   FRedLit := False;
   FUserLaunched := False;
+  FRaceDone := False;
+  FWinLane := -1;
+  FResultIdx := -1;
+  FRuns[0].Abort;
+  FRuns[1].Abort;
+  if FSlipPanel <> nil then
+    FSlipPanel.Visible := False;
   FBogged := False;
   FRpm := IdleRpm;
   FEngineOn := True;
@@ -1303,28 +2190,22 @@ end;
 
 procedure TfrmMain.MoveCars(T, Dt: Double);
 const
-  LaunchAccel: Double = 900.0; // in/s^2, a bit over 2 g
-  BogAccel: Double = 60.0;     // throttle closed: barely moving
   AutoRollIn: Double = 40.0;   // fast roll-in speed, in/s
   CreepIn: Double = 4.0;       // creeping speed near the beams, in/s
   MinSpeed: Double = 2.0;
 var
   Lane: Integer;
   Auto: Boolean;
-  Gap, Step, Accel: Double;
+  Gap, Step: Double;
 begin
   for Lane := 0 to 1 do
   begin
     if FCars[Lane].Launched then
     begin
-      if FCars[Lane].Pos < OffScreenIn then
-      begin
-        Accel := LaunchAccel;
-        if (Lane = FUserLane) and not ThrottleOpen then
-          Accel := BogAccel;
-        FCars[Lane].Speed := FCars[Lane].Speed + Accel * Dt;
-        FCars[Lane].Pos := FCars[Lane].Pos + FCars[Lane].Speed * Dt;
-      end;
+      // the car model, up to now; the other lane's driver keeps it pinned
+      FRuns[Lane].Advance((T - FCars[Lane].RunStartMs) / 1000,
+        (Lane <> FUserLane) or ThrottleOpen);
+      FCars[Lane].Pos := FCars[Lane].LaunchPos + FRuns[Lane].Distance * InchesPerM;
       Continue;
     end;
 
@@ -1418,8 +2299,23 @@ begin
           and StageLit(Opp) and (FCars[Opp].Pos >= AutoStageIn) then
         begin
           FPhase := tpWaiting;
-          FCountdownMs := T + AutoStartMinMs + Random(AutoStartRandMs);
-          FCars[Opp].LaunchAtMs := GreenDueMs + 120 + Random(180);
+          FCountdownMs := T + StartDelayMinMs[FStartDelay]
+            + Random(StartDelayRandMs[FStartDelay]);
+          // handicap: the faster car's tree is held back
+          FLaneStartMs[FUserLane] := FCountdownMs + HandicapDelayMs(FUserLane);
+          FLaneStartMs[Opp] := FCountdownMs + HandicapDelayMs(Opp);
+          FCars[Opp].LaunchAtMs := GreenDueMs(Opp) + 40 + Random(200);
+          if FHandicap then
+          begin
+            if HandicapDelayMs(FUserLane) > 0 then
+              SetVerdict(Format('You start %s s after the other lane',
+                [FormatSecs(HandicapDelayMs(FUserLane))]), clrSubtle)
+            else if HandicapDelayMs(Opp) > 0 then
+              SetVerdict(Format('You start %s s before the other lane',
+                [FormatSecs(HandicapDelayMs(Opp))]), clrSubtle)
+            else
+              SetVerdict('Same dial-in: both trees together', clrSubtle);
+          end;
         end;
         UpdateHint;
       end;
@@ -1427,24 +2323,29 @@ begin
       if T >= FCountdownMs then
         FPhase := tpCountdown;
     tpCountdown:
-      if T >= GreenDueMs then
+      if T >= LastGreenMs then
         FPhase := tpGreen;
   end;
 
-  // the other lane leaves on its own green
-  if (FPhase = tpGreen) and not FCars[Opp].Launched
+  // the other lane leaves on its own green (with a handicap that can come
+  // before yours), timed from when it was due to go rather than this tick
+  if (FPhase in [tpCountdown, tpGreen]) and not FCars[Opp].Launched
     and (T >= FCars[Opp].LaunchAtMs) then
-    FCars[Opp].Launched := True;
-
-  // finished once both cars are away
-  if FUserLaunched and (FPhase = tpGreen)
-    and (FCars[FUserLane].Pos >= OffScreenIn)
-    and (FCars[Opp].Pos >= OffScreenIn) then
   begin
-    tmrTree.Enabled := False;
-    FRunning := False;
-    btnSettings.Enabled := True;
-    UpdateHint;
+    FCars[Opp].Launched := True;
+    FCars[Opp].LaunchPos := FCars[Opp].Pos;
+    FCars[Opp].RunStartMs := FCars[Opp].LaunchAtMs;
+    FRuns[Opp].Start(FCar, EffTrans = trManual, FSurface, FRaceLength,
+      FCar.LaunchRpm);
+  end;
+
+  // the race is over once both cars have finished (or given up)
+  if FUserLaunched and FCars[Opp].Launched and not FRaceDone
+    and (FRuns[FUserLane].State <> rsRunning)
+    and (FRuns[Opp].State <> rsRunning) then
+  begin
+    FinishRace;
+    Exit;
   end;
 
   pbTree.Repaint;
@@ -1482,19 +2383,34 @@ begin
   // is held and drops back to idle when it is let go, run or no run
   if FEngineOn then
   begin
-    if pdThrottle in FPressed then
-      Target := RevLimitRpm
+    if FUserLaunched and (FRuns[FUserLane].State = rsRunning) then
+      // on the run the car model says what the engine is doing
+      FRpm := FRuns[FUserLane].EngineRpm
     else
-      Target := IdleRpm;
-    if FRpm < Target then
-      FRpm := Min(Target, FRpm + RevUpRate * Dt)
-    else
-      FRpm := Max(Target, FRpm - RevDownRate * Dt);
+    begin
+      if not (pdThrottle in FPressed) then
+        Target := IdleRpm
+      else if FRunning and not FUserLaunched then
+      begin
+        // staged: a manual holds its launch revs (two-step), an automatic
+        // on the brake only revs to its stall speed
+        if EffTrans = trManual then
+          Target := FCar.LaunchRpm
+        else
+          Target := FCar.StallRpm;
+      end
+      else
+        Target := FCar.RevLimit;
+      if FRpm < Target then
+        FRpm := Min(Target, FRpm + RevUpRate * Dt)
+      else
+        FRpm := Max(Target, FRpm - RevDownRate * Dt);
+    end;
   end;
-  H := FPads[pdThrottle].Height * EnsureRange(FRpm / MaxGaugeRpm, 0.0, 1.0);
+  H := FPads[pdThrottle].Height * EnsureRange(FRpm / (FCar.RevLimit + 1000), 0.0, 1.0);
   FRevFill.SetBounds(0, FPads[pdThrottle].Height - H,
     FPads[pdThrottle].Width, H);
-  if FRpm >= RevLimitRpm - 200 then
+  if FRpm >= FCar.RevLimit - 200 then
     FRevFill.Fill.Color := TAlphaColor($66FF5252)  // on the limiter
   else
     FRevFill.Fill.Color := TAlphaColor($55FFFFFF);
@@ -1508,28 +2424,163 @@ end;
 procedure TfrmMain.Launch(ReleaseMs: Double);
 var
   R: TRunResult;
+  LaunchRpm: Double;
 begin
   if not FRunning or FUserLaunched then
     Exit;
 
   FUserLaunched := True;
   FCars[FUserLane].Launched := True;
+  FCars[FUserLane].LaunchPos := FCars[FUserLane].Pos;
+  FCars[FUserLane].RunStartMs := ReleaseMs;
   FBogged := not ThrottleOpen;
+  // a manual launches on the revs you are holding (idle if none)
+  if EffThrottle = thManual then
+    LaunchRpm := FRpm
+  else
+    LaunchRpm := FCar.LaunchRpm;
+  FRuns[FUserLane].Start(FCar, EffTrans = trManual, FSurface, FRaceLength,
+    LaunchRpm);
+
+  R := Default(TRunResult);
   R.Mode := FTreeMode;
-  R.BeforeTree := FPhase = tpWaiting;
-  R.ReactionMs := ReleaseMs - GreenDueMs;
+  R.BeforeTree := ReleaseMs < FLaneStartMs[FUserLane];
+  R.ReactionMs := ReleaseMs - GreenDueMs(FUserLane);
   R.Foul := R.ReactionMs < 0;
   R.Bogged := FBogged;
+  // win or lose is decided at the finish line, see FinishRace
+  R.Handicap := FHandicap;
 
   // A red light lights your red bulb; the tree carries on for the other lane
   if R.Foul then
     FRedLit := True;
 
   FResults.Add(R);
+  FResultIdx := FResults.Count - 1;
   ShowResult(R);
   UpdateStats;
   UpdateHint;
   pbTree.Repaint;
+end;
+
+procedure TfrmMain.FinishRace;
+var
+  R: TRunResult;
+  Opp: Integer;
+  UserDone, OppDone: Boolean;
+  UserAt, OppAt, Margin, UserUnder, OppUnder: Double;
+  UserBO, OppBO: Boolean;
+  Verdict: string;
+  Color: TAlphaColor;
+begin
+  FRaceDone := True;
+  tmrTree.Enabled := False;
+  FRunning := False;
+  btnSettings.Enabled := True;
+  if FResultIdx < 0 then
+    Exit;
+
+  Opp := OppLane;
+  UserDone := FRuns[FUserLane].State = rsFinished;
+  OppDone := FRuns[Opp].State = rsFinished;
+  R := FResults[FResultIdx];
+  R.Finished := UserDone;
+  R.ET := FRuns[FUserLane].ET;
+  R.TrapSpeed := FRuns[FUserLane].TrapSpeed;
+  R.OppReactionMs := FCars[Opp].LaunchAtMs - GreenDueMs(Opp);
+  R.OppET := FRuns[Opp].ET;
+
+  // First to the finish line wins. That's reaction time + elapsed time,
+  // plus the head start with a handicap (each lane's tree has its own
+  // start). A red light loses.
+  UserAt := FCars[FUserLane].RunStartMs + FRuns[FUserLane].FinishTime * 1000;
+  OppAt := FCars[Opp].RunStartMs + FRuns[Opp].FinishTime * 1000;
+  Margin := Abs(UserAt - OppAt);
+
+  // Handicap: running quicker than your dial-in is a "break out" and loses.
+  // If both break out, the one who broke out by less wins.
+  UserUnder := FYourDial / 100 - R.ET;
+  OppUnder := FOtherDial / 100 - R.OppET;
+  UserBO := FHandicap and UserDone and (UserUnder > 0);
+  OppBO := FHandicap and OppDone and (OppUnder > 0);
+  R.BrokeOut := UserBO;
+
+  if R.Foul then
+    R.Outcome := ocLoss
+  else if not UserDone then
+  begin
+    if OppDone then R.Outcome := ocLoss else R.Outcome := ocNone;
+  end
+  else if not OppDone then
+    R.Outcome := ocWin
+  else if UserBO and OppBO then
+  begin
+    if Abs(UserUnder - OppUnder) < 0.00005 then
+      R.Outcome := ocTie
+    else if UserUnder < OppUnder then
+      R.Outcome := ocWin
+    else
+      R.Outcome := ocLoss;
+  end
+  else if UserBO then
+    R.Outcome := ocLoss
+  else if OppBO then
+    R.Outcome := ocWin
+  else if Margin < 0.05 then
+    R.Outcome := ocTie
+  else if UserAt < OppAt then
+    R.Outcome := ocWin
+  else
+    R.Outcome := ocLoss;
+  FResults[FResultIdx] := R;
+
+  case R.Outcome of
+    ocWin:
+      begin
+        FWinLane := FUserLane;
+        if OppBO then
+          Verdict := 'YOU WIN - the other lane broke out'
+        else if OppDone then
+          Verdict := Format('YOU WIN by %s s', [FormatSecs(Margin)])
+        else
+          Verdict := 'YOU WIN';
+        Color := clrGreen;
+      end;
+    ocLoss:
+      begin
+        FWinLane := Opp;
+        if R.Foul then
+          Verdict := 'RED LIGHT - you lose'
+        else if not UserDone then
+          Verdict := 'Did not finish - you lose'
+        else if UserBO then
+          Verdict := Format('BROKE OUT - %s on a %s dial-in',
+            [FormatET(R.ET), FormatDial(FYourDial)])
+        else
+          Verdict := Format('Beaten by %s s', [FormatSecs(Margin)]);
+        Color := clrRed;
+        if not R.Foul and UserDone and not UserBO then
+          Color := clrAmber;
+      end;
+    ocTie:
+      begin
+        FWinLane := 2;
+        Verdict := 'DEAD HEAT!';
+        Color := clrAmber;
+      end;
+  else
+    begin
+      FWinLane := -1;
+      Verdict := 'Neither car finished';
+      Color := clrSubtle;
+    end;
+  end;
+
+  SetVerdict(Verdict, Color);
+  UpdateStats;
+  UpdateHint;
+  pbTree.Repaint;
+  ShowSlip(R, Verdict, Color);
 end;
 
 procedure TfrmMain.ShowResult(const R: TRunResult);
@@ -1665,7 +2716,24 @@ begin
         Lines.Append(' R');
       if R.Bogged then
         Lines.Append(' B');
+      if R.Handicap then
+        Lines.Append(' H');
       Lines.Append(sLineBreak);
+      if R.Finished or (R.Outcome <> ocNone) then
+      begin
+        if R.Finished then
+          Lines.Append('   ' + Format('%.2f', [R.ET], TFormatSettings.Invariant))
+        else
+          Lines.Append('   DNF');
+        if R.BrokeOut then
+          Lines.Append(' BO');
+        case R.Outcome of
+          ocWin: Lines.Append(' W');
+          ocLoss: Lines.Append(' L');
+          ocTie: Lines.Append(' T');
+        end;
+        Lines.Append(sLineBreak);
+      end;
       Dec(I);
     end;
     lblHistory.Text := Lines.ToString;
@@ -1810,6 +2878,81 @@ var
         LabelText(RectF(0, Y + 1, CX - LaneW * 0.48 - 2, Y + NameH + 1), Name, clrSubtle, 9);
   end;
 
+  procedure DrawTrack;
+  const
+    TopGap = 16;    // lane readouts above the finish line
+    BottomGap = 6;
+  var
+    FinishM, MScale, StartY, Y, CarH, D: Double;
+    Sp: TSplit;
+    Ln: Integer;
+    Txt: string;
+
+    function MetreY(M: Double): Single;
+    begin
+      Result := StartY - EnsureRange(M, 0.0, FinishM) * MScale;
+    end;
+
+  begin
+    FinishM := SplitM[RaceSplit[FRaceLength]];
+    StartY := TrackBottom - BottomGap;
+    MScale := (StartY - TrackTop - TopGap) / FinishM;
+    CarH := LaneW * 0.25;
+    if CarH < 6 then
+      CarH := 6
+    else if CarH > 14 then
+      CarH := 14;
+    for Ln := 0 to 1 do
+    begin
+      Canvas.Fill.Kind := TBrushKind.Solid;
+      Canvas.Fill.Color := clrTrack;
+      Canvas.FillRect(RectF(LaneX[Ln] - LaneW * 0.5, TrackTop + TopGap,
+        LaneX[Ln] + LaneW * 0.5, TrackBottom), 0, 0, AllCorners, 1);
+      // timing marks, then the start and finish lines
+      Canvas.Stroke.Kind := TBrushKind.Solid;
+      Canvas.Stroke.Thickness := 1;
+      Canvas.Stroke.Color := TAlphaColor($FF6A6A6A);
+      for Sp := Low(TSplit) to Pred(RaceSplit[FRaceLength]) do
+      begin
+        Y := MetreY(SplitM[Sp]);
+        Canvas.DrawLine(PointF(LaneX[Ln] - LaneW * 0.5, Y),
+          PointF(LaneX[Ln] + LaneW * 0.5, Y), 1);
+      end;
+      Canvas.Stroke.Color := TAlphaColors.White;
+      Canvas.Stroke.Thickness := 3;
+      Canvas.DrawLine(PointF(LaneX[Ln] - LaneW * 0.5, MetreY(FinishM)),
+        PointF(LaneX[Ln] + LaneW * 0.5, MetreY(FinishM)), 1);
+      Canvas.Stroke.Thickness := 2;
+      Canvas.DrawLine(PointF(LaneX[Ln] - LaneW * 0.5, StartY),
+        PointF(LaneX[Ln] + LaneW * 0.5, StartY), 1);
+
+      // the car: its nose at the distance it has covered
+      D := 0;
+      if FCars[Ln].Launched then
+        D := FRuns[Ln].DistFromLine;
+      Y := MetreY(D);
+      Canvas.Fill.Kind := TBrushKind.Solid;
+      if Ln = FUserLane then
+        Canvas.Fill.Color := clrYou
+      else
+        Canvas.Fill.Color := clrOpponent;
+      Canvas.FillRect(RectF(LaneX[Ln] - LaneW * 0.2, Y, LaneX[Ln] + LaneW * 0.2,
+        Y + CarH * 1.6), 3, 3, AllCorners, 1);
+
+      // above the lane: speed on the way, the elapsed time at the end
+      if FRuns[Ln].State = rsFinished then
+        Txt := FormatET(FRuns[Ln].ET)
+      else if FCars[Ln].Launched then
+        Txt := SpeedText(FRuns[Ln].Speed)
+      else
+        Txt := '';
+      LabelText(RectF(LaneX[Ln] - LaneW * 0.5, TrackTop, LaneX[Ln] + LaneW * 0.5,
+        TrackTop + TopGap), Txt, clrText, 11);
+    end;
+    LabelText(RectF(0, TrackTop + TopGap - 2, LaneX[0] - LaneW * 0.5,
+      TrackTop + TopGap + 12), RaceLengthNames[FRaceLength], clrSubtle, 9);
+  end;
+
 begin
   W := pbTree.Width;
   H := pbTree.Height;
@@ -1833,10 +2976,27 @@ begin
 
   for Lane := 0 to 1 do
   begin
-    // lane label: YOU in blue over your lane. Each label is centred on its
-    // lane and as wide as the space allows (0.19 W either side reaches the
-    // middle); a rect sized from the bulb radius clipped OTHER LANE on phones.
-    if Lane = FUserLane then
+    // lane label: YOU in blue over your lane, the win light once decided.
+    // Each label is centred on its lane and as wide as the space allows
+    // (0.19 W either side reaches the middle); a rect sized from the bulb
+    // radius clipped OTHER LANE on phones.
+    if (FWinLane = Lane) or (FWinLane = 2) then
+    begin
+      Canvas.Fill.Kind := TBrushKind.Solid;
+      Canvas.Fill.Color := clrStage;
+      Canvas.FillRect(RectF(LaneX[Lane] - R * 1.6, 1, LaneX[Lane] + R * 1.6,
+        LabelH - 1), 6, 6, AllCorners, 0.9);
+      if FWinLane = 2 then
+        LabelText(RectF(LaneX[Lane] - W * 0.19, 0, LaneX[Lane] + W * 0.19, LabelH),
+          'TIE', clrBackground, 14)
+      else if Lane = FUserLane then
+        LabelText(RectF(LaneX[Lane] - W * 0.19, 0, LaneX[Lane] + W * 0.19, LabelH),
+          'YOU WIN', clrBackground, 14)
+      else
+        LabelText(RectF(LaneX[Lane] - W * 0.19, 0, LaneX[Lane] + W * 0.19, LabelH),
+          'WIN', clrBackground, 14);
+    end
+    else if Lane = FUserLane then
       LabelText(RectF(LaneX[Lane] - W * 0.19, 0, LaneX[Lane] + W * 0.19, LabelH),
         'YOU', clrYou, 15)
     else
@@ -1863,16 +3023,21 @@ begin
     Bulb(LaneX[Lane] + SmallR * 1.3, RowY(1), SmallR, clrStage, StageLit(Lane));
 
     for I := 0 to 2 do
-      Bulb(LaneX[Lane], RowY(2 + I), R, clrAmber, AmberLit(I, T));
+      Bulb(LaneX[Lane], RowY(2 + I), R, clrAmber, AmberLit(Lane, I, T));
 
     Bulb(LaneX[Lane], RowY(5), R, clrGreen, GreenLit(Lane, T));
     Bulb(LaneX[Lane], RowY(6), R, clrRed, (Lane = FUserLane) and FRedLit);
   end;
 
-  // ----- staging view -----
+  // ----- staging view, then the whole track once you have gone -----
   TrackTop := TreeH + 8;
   TrackBottom := H;
   Scale := (TrackBottom - TrackTop) / (ViewFwdIn - ViewBackIn);
+  if FUserLaunched then
+  begin
+    DrawTrack;
+    Exit;
+  end;
 
   State := Canvas.SaveState;
   try
