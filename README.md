@@ -5,7 +5,8 @@ starting tree (Pro or Sportsman) so you can practise your reaction time.
 
 ## How it works
 
-Tap **Settings** to choose:
+Tap the **gear** button to open Settings. It has three tabs, **Tree**,
+**Race** and **Pedals**:
 
 - **Tree: Pro / Sportsman.** Pro lights all three ambers together with the
   green 0.400 s later. Sportsman (full tree) lights the ambers one after
@@ -80,9 +81,8 @@ let the car go:
 | 0.100 and up| Late                          |
 
 When you red-light, your red bulb lights and the tree carries on for the
-other lane. History marks Sportsman runs with **S**, red lights with **R** and
-bogged launches with **B**, and handicap wins and losses with **W** and **L**.
-Your settings are saved between sessions.
+other lane. History lists your reaction times, newest first (a red light is
+a time below zero). Your settings are saved between sessions.
 
 ## Cars and the race down the track (new in 2.0)
 
@@ -90,8 +90,7 @@ After the launch both cars run down the track, and **the first car to the
 finish line wins**: reaction time plus elapsed time. A red light loses. The
 track view under the tree shows both cars, the **WIN** light comes on over
 the winner's lane, and a **time slip** shows both lanes' reaction time,
-60 ft, 330 ft, 1/8 mile, 1000 ft and 1/4 mile times and speeds. History shows
-each run's elapsed time with **W** (win), **L** (loss) or **T** (tie).
+60 ft, 330 ft, 1/8 mile, 1000 ft and 1/4 mile times and speeds.
 
 The Settings screen has four more rows:
 
@@ -123,8 +122,9 @@ reaction time of 0.040 to 0.240 s.
 runs on each track and checks them against real-world times. Build it as a
 Windows console app in RAD Studio (or with Free Pascal).
 
-Buttons: **Start** runs the tree, **Stop** aborts a run, **Reset** clears the
-lights for the next run, **Clear** wipes the history and stats.
+Buttons: **Start** runs the tree, **Stop** aborts a run (press it again to
+clear the lights), the **gear** opens Settings, **Clear** wipes the history
+and stats.
 On Windows, **Enter** starts a run.
 
 ## Building

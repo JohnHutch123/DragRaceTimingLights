@@ -80,7 +80,7 @@ const
   MaxDialIn = 9999;  // 99.99 s
   DefaultYourDial = 1250;
   DefaultOtherDial = 1180;
-  HistoryLines = 12;        // runs shown, two lines each
+  HistoryLines = 20;        // runs shown in the history box, one line each
 
   // engine, for the rev bar and stalling (manual gearbox)
   IdleRpm: Double = 900.0;
@@ -109,6 +109,8 @@ type
   // straight after Handicap)
   TSetting = (stTree, stSpeed, stDelay, stLane, stStaging, stPedalInput,
     stTrans, stThrottle, stCar, stLength, stSurface, stUnits, stHandicap);
+  // Settings screen tabs
+  TSettingTab = (tbTree, tbRace, tbPedals);
   TOutcome = (ocNone, ocWin, ocLoss, ocTie);
   // what the Car screen's - / + buttons change
   TCarField = (cfPreset, cfPower, cfWeight, cfGears, cfFinal, cfShift, cfLaunch);
@@ -170,8 +172,6 @@ type
     lblReaction: TLabel;
     lblVerdict: TLabel;
     lblStats: TLabel;
-    layOptions: TLayout;
-    lblSummary: TLabel;
     layMiddle: TLayout;
     pbTree: TPaintBox;
     rectHistory: TRectangle;
@@ -195,7 +195,6 @@ type
     procedure tmrTreeTimer(Sender: TObject);
     procedure btnStartClick(Sender: TObject);
     procedure btnStopClick(Sender: TObject);
-    procedure btnResetClick(Sender: TObject);
     procedure btnClearClick(Sender: TObject);
     procedure btnSettingsClick(Sender: TObject);
     procedure layButtonsResize(Sender: TObject);
@@ -248,12 +247,15 @@ type
     btnSettings: TTapButton;
     btnStart: TTapButton;
     btnStop: TTapButton;
-    btnReset: TTapButton;
     btnClear: TTapButton;
 
     // settings screen
     FSettingsPanel: TRectangle;
     FSettingButtons: array[TSetting] of TTapButton;
+    FSettingTab: TSettingTab;
+    FTabRow: TLayout;
+    FTabButtons: array[TSettingTab] of TTapButton;
+    FSettingsBox: TLayout;
     FDialRow: TLayout;
     FDialLabels: array[0..1] of TLabel;
     FDialEdits: array[0..1] of TEdit; // 0 = you, 1 = other lane
@@ -314,6 +316,11 @@ type
     procedure CreatePads;
     procedure CreateSettingsPanel;
     procedure SettingButtonClick(Sender: TObject);
+    procedure SettingTabClick(Sender: TObject);
+    procedure ShowSettingTab(Tab: TSettingTab);
+    procedure TabRowResize(Sender: TObject);
+    procedure GearPaint(Sender: TObject; Canvas: TCanvas);
+    procedure FitPanels;
     procedure SettingsDoneClick(Sender: TObject);
     procedure UpdateSettingsTexts;
     function CarTitle: string;
@@ -427,7 +434,6 @@ const
   // button colours
   clrBtnStart    = TAlphaColor($FF2E7D32); // green
   clrBtnStop     = TAlphaColor($FFC62828); // red
-  clrBtnReset    = TAlphaColor($FFEF6C00); // orange
   clrBtnClear    = TAlphaColor($FF546E7A); // slate
   clrBtnSettings = TAlphaColor($FF1565C0); // blue
   clrBtnOption   = TAlphaColor($FF37474F); // settings rows
@@ -442,6 +448,11 @@ const
   TransNames: array[TTransMode] of string = ('Auto', 'Manual');
   ThrottleNames: array[TThrottleMode] of string = ('Auto', 'Manual');
   PedalInputNames: array[TPedalInput] of string = ('On-screen pads', 'Foot sensors');
+  SettingTabNames: array[TSettingTab] of string = ('Tree', 'Race', 'Pedals');
+  SettingTabOf: array[TSetting] of TSettingTab = (
+    tbTree, tbTree, tbTree, tbTree, tbTree,  // tree, speed, delay, lane, staging
+    tbPedals, tbPedals, tbPedals,            // pedal input, trans, throttle
+    tbRace, tbRace, tbRace, tbRace, tbRace); // car, length, surface, units, handicap
 
 {$IFDEF MSWINDOWS}
 const
@@ -645,6 +656,7 @@ begin
   CreateSettingsPanel;
   CreateCarPanel;
   CreateSlipPanel;
+  FitPanels;
   FRepeatTimer := TTimer.Create(Self);
   FRepeatTimer.Enabled := False;
   FRepeatTimer.OnTimer := RepeatTimerTick;
@@ -730,6 +742,7 @@ begin
     begin
       Padding.Top := Round(PadTop);
       Padding.Bottom := Round(PadBot);
+      FitPanels;
     end;
   except
     // never let a JNI problem stop the app; worst case the bar overlaps
@@ -1350,9 +1363,9 @@ const
 var
   Scroll: TVertScrollBox;
   Box: TLayout;
-  Title: TLabel;
   Done: TTapButton;
   S: TSetting;
+  T: TSettingTab;
   I: Integer;
 begin
   FSettingsPanel := TRectangle.Create(Self);
@@ -1364,7 +1377,8 @@ begin
   FSettingsPanel.HitTest := True; // swallow taps behind the panel
   FSettingsPanel.Visible := False;
 
-  // there are more rows than a small phone can show, so they scroll
+  // The settings are split over three tabs (Tree, Race, Pedals) so each fits
+  // on a phone; the box still scrolls in case a small screen needs it.
   Scroll := TVertScrollBox.Create(Self);
   Scroll.Parent := FSettingsPanel;
   Scroll.Align := TAlignLayout.Client;
@@ -1375,15 +1389,22 @@ begin
   Box.Margins.Left := 16;
   Box.Margins.Right := 16;
   Box.Margins.Top := 8;
-  // title, one row per setting, the dial-in row, Done
-  Box.Height := RowH * (Ord(High(TSetting)) + 4) + 16;
+  FSettingsBox := Box;
 
-  Title := TLabel.Create(Self);
-  Title.Parent := Box;
-  Title.Align := TAlignLayout.Top;
-  Title.Height := RowH;
-  Title.Text := 'Settings';
-  StyleLabel(Title, 24, clrText, True, TTextAlign.Center);
+  // tab bar
+  FTabRow := TLayout.Create(Self);
+  FTabRow.Parent := Box;
+  FTabRow.Align := TAlignLayout.Top;
+  FTabRow.Position.Y := 0;
+  FTabRow.Height := RowH - 4;
+  FTabRow.Margins.Bottom := 12;
+  FTabRow.OnResize := TabRowResize;
+  for T := Low(TSettingTab) to High(TSettingTab) do
+  begin
+    FTabButtons[T] := MakeButton(FTabRow, SettingTabNames[T], clrBtnOption,
+      SettingTabClick);
+    FTabButtons[T].Tag := Ord(T);
+  end;
 
   for S := Low(TSetting) to High(TSetting) do
   begin
@@ -1395,7 +1416,7 @@ begin
     FSettingButtons[S].Tag := Ord(S);
   end;
 
-  // handicap dial-ins: "You [12.50]  Other [11.80]"
+  // handicap dial-ins: "You [12.50]  Other [11.80]" (Race tab)
   FDialRow := TLayout.Create(Self);
   FDialRow.Parent := Box;
   FDialRow.Align := TAlignLayout.Top;
@@ -1432,6 +1453,58 @@ begin
   Done.Margins.Top := 8;
 
   UpdateSettingsTexts;
+  ShowSettingTab(tbTree);
+end;
+
+procedure TfrmMain.TabRowResize(Sender: TObject);
+const
+  Gap = 8;
+var
+  T: TSettingTab;
+  W: Single;
+begin
+  if FTabButtons[High(TSettingTab)] = nil then
+    Exit;
+  W := (FTabRow.Width - Gap * Ord(High(TSettingTab))) / (Ord(High(TSettingTab)) + 1);
+  for T := Low(TSettingTab) to High(TSettingTab) do
+    FTabButtons[T].SetBounds(Ord(T) * (W + Gap), 0, W, FTabRow.Height);
+end;
+
+procedure TfrmMain.SettingTabClick(Sender: TObject);
+begin
+  Focused := nil; // a dial-in box may still be being edited
+  ReadDialEdits;
+  ShowSettingTab(TSettingTab(TComponent(Sender).Tag));
+end;
+
+procedure TfrmMain.ShowSettingTab(Tab: TSettingTab);
+const
+  RowH = 46;
+var
+  S: TSetting;
+  T: TSettingTab;
+  Rows: Integer;
+begin
+  FSettingTab := Tab;
+  for T := Low(TSettingTab) to High(TSettingTab) do
+    if T = Tab then
+      FTabButtons[T].Color := clrBtnSettings
+    else
+      FTabButtons[T].Color := clrBtnOption;
+  // hidden rows take no room: aligned controls skip invisible ones
+  Rows := 0;
+  for S := Low(TSetting) to High(TSetting) do
+  begin
+    FSettingButtons[S].Visible := SettingTabOf[S] = Tab;
+    if FSettingButtons[S].Visible then
+      Inc(Rows);
+  end;
+  FDialRow.Visible := Tab = tbRace;
+  if FDialRow.Visible then
+    Inc(Rows);
+  // tab bar, the rows, Done
+  FSettingsBox.Height := RowH * (Rows + 2) + 24;
+  FSettingsBox.Realign;
 end;
 
 function TfrmMain.TreeSpeedText: string;
@@ -1461,7 +1534,6 @@ procedure TfrmMain.UpdateSettingsTexts;
 const
   NeedsTouch = ' (needs multi-touch)';
 var
-  Summary: string;
   I: Integer;
 begin
   FSettingButtons[stTree].Text := 'Tree: ' + TreeNames[FTreeMode];
@@ -1483,6 +1555,13 @@ begin
   FSettingButtons[stLane].Text := 'Lane: ' + LaneNames[FUserLane];
   FSettingButtons[stStaging].Text := 'Staging: ' + StageNames[FStageMode];
   FSettingButtons[stPedalInput].Text := 'Pedal input: ' + PedalInputNames[FPedalInput];
+  if FPedalInput = piSensors then
+  begin
+    if FSensorSeen then
+      FSettingButtons[stPedalInput].Text := FSettingButtons[stPedalInput].Text + ' (connected)'
+    else
+      FSettingButtons[stPedalInput].Text := FSettingButtons[stPedalInput].Text + ' (press one)';
+  end;
   FSettingButtons[stTrans].Text := 'Transmission: ' + TransNames[EffTrans];
   FSettingButtons[stThrottle].Text := 'Throttle: ' + ThrottleNames[EffThrottle];
   if not AllPedals then
@@ -1501,27 +1580,6 @@ begin
   else
     FSettingButtons[stUnits].Text := 'Units: kW, kg, km/h';
 
-  Summary := Format('%s tree %s, %s lane, %s staging', [TreeNames[FTreeMode],
-    TreeSpeedText, LowerCase(LaneNames[FUserLane]),
-    LowerCase(StageNames[FStageMode])]);
-  if AllPedals then
-    Summary := Summary + Format(', %s trans, %s throttle',
-      [LowerCase(TransNames[EffTrans]), LowerCase(ThrottleNames[EffThrottle])])
-  else
-    Summary := Summary + ', brake only';
-  if FPedalInput = piSensors then
-  begin
-    if FSensorSeen then
-      Summary := Summary + ', foot sensors connected'
-    else
-      Summary := Summary + ', foot sensors (none yet: press a pedal)';
-  end;
-  if FHandicap then
-    Summary := Summary + Format(', dial-in %s vs %s',
-      [FormatDial(FYourDial), FormatDial(FOtherDial)]);
-  Summary := Summary + sLineBreak + Format('%s, %s, %s', [CarTitle,
-    RaceLengthNames[FRaceLength], LowerCase(SurfaceNames[FSurface])]);
-  lblSummary.Text := Summary;
 end;
 
 procedure TfrmMain.SettingButtonClick(Sender: TObject);
@@ -2052,8 +2110,6 @@ begin
   StyleLabel(lblReaction, 48, clrText, True, TTextAlign.Center);
   StyleLabel(lblVerdict, 20, clrSubtle, True, TTextAlign.Center);
   StyleLabel(lblStats, 14, clrSubtle, False, TTextAlign.Center);
-  StyleLabel(lblSummary, 12, clrSubtle, False, TTextAlign.Leading);
-  lblSummary.WordWrap := True;
   StyleLabel(lblHistoryTitle, 14, clrSubtle, True, TTextAlign.Center);
   StyleLabel(lblHistory, 14, clrText, False, TTextAlign.Leading);
   lblHistory.TextSettings.VertAlign := TTextAlign.Leading;
@@ -2063,6 +2119,20 @@ begin
   rectHistory.Fill.Kind := TBrushKind.Solid;
   rectHistory.Fill.Color := clrPanel;
   rectHistory.Stroke.Kind := TBrushKind.None;
+  FitPanels;
+end;
+
+procedure TfrmMain.FitPanels;
+begin
+  // The full-screen panels (Settings, Car, time slip) cover the whole form,
+  // which ignores the form's Padding, so give them the same padding to keep
+  // their buttons clear of the status bar and the Android navigation bar.
+  if FSettingsPanel <> nil then
+    FSettingsPanel.Padding.Rect := Padding.Rect;
+  if FCarPanel <> nil then
+    FCarPanel.Padding.Rect := Padding.Rect;
+  if FSlipPanel <> nil then
+    FSlipPanel.Padding.Rect := Padding.Rect;
 end;
 
 function TfrmMain.MakeButton(AParent: TFmxObject; const AText: string;
@@ -2076,17 +2146,72 @@ begin
 end;
 
 procedure TfrmMain.CreateButtons;
+var
+  Gear: TPaintBox;
 begin
-  btnSettings := MakeButton(layOptions, 'Settings', clrBtnSettings,
-    btnSettingsClick);
-  btnSettings.Align := TAlignLayout.Left;
-  btnSettings.Width := 100;
-
   btnStart := MakeButton(layButtons, 'Start', clrBtnStart, btnStartClick);
   btnStop := MakeButton(layButtons, 'Stop', clrBtnStop, btnStopClick);
-  btnReset := MakeButton(layButtons, 'Reset', clrBtnReset, btnResetClick);
+  // Settings: a gear icon, no text, in the old Reset slot
+  btnSettings := MakeButton(layButtons, '', clrBtnSettings, btnSettingsClick);
+  Gear := TPaintBox.Create(Self);
+  Gear.Parent := btnSettings;
+  Gear.Align := TAlignLayout.Client;
+  Gear.HitTest := False;
+  Gear.OnPaint := GearPaint;
   btnClear := MakeButton(layButtons, 'Clear', clrBtnClear, btnClearClick);
   layButtonsResize(layButtons);
+end;
+
+procedure TfrmMain.GearPaint(Sender: TObject; Canvas: TCanvas);
+const
+  Teeth = 8;
+var
+  Box: TPaintBox;
+  C: TPointF;
+  ROut, RIn, RHole, A, Step: Single;
+  Path: TPathData;
+  K: Integer;
+
+  function At(Radius, Deg: Single): TPointF;
+  begin
+    Result := PointF(C.X + Radius * Cos(DegToRad(Deg)),
+      C.Y + Radius * Sin(DegToRad(Deg)));
+  end;
+
+begin
+  // a simple white gear: 8 square-ish teeth round a ring, with a hole in
+  // the middle filled in the button's own colour
+  Box := TPaintBox(Sender);
+  C := PointF(Box.Width / 2, Box.Height / 2);
+  ROut := Min(Box.Width, Box.Height) * 0.34;
+  RIn := ROut * 0.76;
+  RHole := ROut * 0.34;
+  Step := 360 / Teeth;
+  Path := TPathData.Create;
+  try
+    for K := 0 to Teeth - 1 do
+    begin
+      A := K * Step;
+      if K = 0 then
+        Path.MoveTo(At(RIn, A - Step * 0.36))
+      else
+        Path.LineTo(At(RIn, A - Step * 0.36));
+      Path.LineTo(At(ROut, A - Step * 0.2));
+      Path.LineTo(At(ROut, A + Step * 0.2));
+      Path.LineTo(At(RIn, A + Step * 0.36));
+    end;
+    Path.ClosePath;
+    Canvas.Fill.Kind := TBrushKind.Solid;
+    Canvas.Fill.Color := clrText;
+    Canvas.FillPath(Path, 1);
+  finally
+    Path.Free;
+  end;
+  if Box.Parent is TTapButton then
+    Canvas.Fill.Color := TTapButton(Box.Parent).Fill.Color
+  else
+    Canvas.Fill.Color := clrBackground;
+  Canvas.FillEllipse(RectF(C.X - RHole, C.Y - RHole, C.X + RHole, C.Y + RHole), 1);
 end;
 
 procedure TfrmMain.layButtonsResize(Sender: TObject);
@@ -2109,7 +2234,7 @@ begin
     case I of
       0: B := btnStart;
       1: B := btnStop;
-      2: B := btnReset;
+      2: B := btnSettings;
     else
       B := btnClear;
     end;
@@ -2703,37 +2828,14 @@ begin
     lblStats.Text := Format('Runs %d   Best -.---   Avg -.---   Red %d',
       [FResults.Count, Fouls]);
 
+  // history: just the reaction time of each run, newest first
   Lines := TStringBuilder.Create;
   try
     I := FResults.Count - 1;
     while (I >= 0) and (I >= FResults.Count - HistoryLines) do
     begin
-      R := FResults[I];
-      Lines.Append(Format('#%d  %s', [I + 1, FormatSecs(R.ReactionMs)]));
-      if R.Mode = tmSportsman then
-        Lines.Append(' S');
-      if R.Foul then
-        Lines.Append(' R');
-      if R.Bogged then
-        Lines.Append(' B');
-      if R.Handicap then
-        Lines.Append(' H');
+      Lines.Append(FormatSecs(FResults[I].ReactionMs));
       Lines.Append(sLineBreak);
-      if R.Finished or (R.Outcome <> ocNone) then
-      begin
-        if R.Finished then
-          Lines.Append('   ' + Format('%.2f', [R.ET], TFormatSettings.Invariant))
-        else
-          Lines.Append('   DNF');
-        if R.BrokeOut then
-          Lines.Append(' BO');
-        case R.Outcome of
-          ocWin: Lines.Append(' W');
-          ocLoss: Lines.Append(' L');
-          ocTie: Lines.Append(' T');
-        end;
-        Lines.Append(sLineBreak);
-      end;
       Dec(I);
     end;
     lblHistory.Text := Lines.ToString;
@@ -2749,13 +2851,12 @@ end;
 
 procedure TfrmMain.btnStopClick(Sender: TObject);
 begin
+  // Stop ends a run; pressed again (or when idle) it resets the tree,
+  // which used to be the Reset button's job
   if FRunning then
-    StopRun('Stopped');
-end;
-
-procedure TfrmMain.btnResetClick(Sender: TObject);
-begin
-  ResetTree;
+    StopRun('Stopped')
+  else
+    ResetTree;
 end;
 
 procedure TfrmMain.btnClearClick(Sender: TObject);
