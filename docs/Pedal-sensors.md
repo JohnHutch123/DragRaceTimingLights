@@ -114,8 +114,8 @@ If light presses barely register, try a 22 kΩ or 47 kΩ resistor instead of 10 
 - With foot sensors, manual transmission and manual throttle work even without
   multi-touch, touches on the pads are ignored, and the pads light up to show
   what your feet are doing.
-- The summary line under the tree says "foot sensors connected" once the
-  first B, T or C arrives.
+- Settings > Pedals shows "Foot sensors (connected)" once the first B, T or C
+  arrives.
 - Key events are time-stamped on the same clock as the tree, so reaction
   times compare directly with the on-screen pads.
 - The keys also work with on-screen pads selected, for example a desktop

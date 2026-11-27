@@ -47,26 +47,6 @@ object frmMain: TfrmMain
       Text = 'Runs 0'
     end
   end
-  object layOptions: TLayout
-    Align = Top
-    Margins.Left = 8.000000000000000000
-    Margins.Top = 4.000000000000000000
-    Margins.Right = 8.000000000000000000
-    Position.X = 8.000000000000000000
-    Position.Y = 132.000000000000000000
-    Size.Width = 374.000000000000000000
-    Size.Height = 66.000000000000000000
-    Size.PlatformDefault = False
-    TabOrder = 4
-    object lblSummary: TLabel
-      Align = Client
-      Margins.Left = 10.000000000000000000
-      Size.Width = 364.000000000000000000
-      Size.Height = 66.000000000000000000
-      Size.PlatformDefault = False
-      Text = 'Pro tree'
-    end
-  end
   object layMiddle: TLayout
     Align = Client
     Margins.Left = 8.000000000000000000
@@ -80,8 +60,8 @@ object frmMain: TfrmMain
     object rectHistory: TRectangle
       Align = Right
       Margins.Left = 8.000000000000000000
-      Position.X = 280.000000000000000000
-      Size.Width = 94.000000000000000000
+      Position.X = 302.000000000000000000
+      Size.Width = 72.000000000000000000
       Size.Height = 360.000000000000000000
       Size.PlatformDefault = False
       XRadius = 10.000000000000000000
@@ -90,7 +70,7 @@ object frmMain: TfrmMain
         Align = Top
         Margins.Top = 6.000000000000000000
         Position.Y = 6.000000000000000000
-        Size.Width = 94.000000000000000000
+        Size.Width = 72.000000000000000000
         Size.Height = 24.000000000000000000
         Size.PlatformDefault = False
         Text = 'History'
@@ -100,7 +80,7 @@ object frmMain: TfrmMain
         Margins.Left = 10.000000000000000000
         Margins.Right = 6.000000000000000000
         Margins.Bottom = 6.000000000000000000
-        Size.Width = 78.000000000000000000
+        Size.Width = 56.000000000000000000
         Size.Height = 324.000000000000000000
         Size.PlatformDefault = False
       end
@@ -119,9 +99,9 @@ object frmMain: TfrmMain
     Margins.Right = 8.000000000000000000
     Margins.Bottom = 8.000000000000000000
     Position.X = 8.000000000000000000
-    Position.Y = 548.000000000000000000
+    Position.Y = 587.000000000000000000
     Size.Width = 374.000000000000000000
-    Size.Height = 160.000000000000000000
+    Size.Height = 121.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 2
     object lblHint: TLabel
@@ -135,7 +115,7 @@ object frmMain: TfrmMain
       Align = Client
       Margins.Top = 4.000000000000000000
       Size.Width = 374.000000000000000000
-      Size.Height = 130.000000000000000000
+      Size.Height = 91.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
       OnResize = layPadsResize
