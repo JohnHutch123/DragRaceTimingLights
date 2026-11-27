@@ -1504,7 +1504,6 @@ begin
     Inc(Rows);
   // tab bar, the rows, Done
   FSettingsBox.Height := RowH * (Rows + 2) + 24;
-  FSettingsBox.Realign;
 end;
 
 function TfrmMain.TreeSpeedText: string;
