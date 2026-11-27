@@ -107,8 +107,10 @@ type
   TPedalInput = (piScreen, piSensors);
   // the order they appear on the Settings screen (the dial-in boxes come
   // straight after Handicap)
+  // Reaction time: the run ends at the launch. Elapsed time: race to the line.
+  TRunMode = (rmReaction, rmElapsed);
   TSetting = (stTree, stSpeed, stDelay, stLane, stStaging, stPedalInput,
-    stTrans, stThrottle, stCar, stLength, stSurface, stUnits, stHandicap);
+    stTrans, stThrottle, stRunMode, stCar, stLength, stSurface, stUnits, stHandicap);
   // Settings screen tabs
   TSettingTab = (tbTree, tbRace, tbPedals);
   TOutcome = (ocNone, ocWin, ocLoss, ocTie);
@@ -131,6 +133,7 @@ type
     Outcome: TOutcome;
     Handicap: Boolean;     // a handicap (dial-in) race
     BrokeOut: Boolean;     // handicap: ran quicker than the dial-in
+    RunMode: TRunMode;     // reaction time only, or a race to the line
   end;
 
   TCar = record
@@ -269,6 +272,7 @@ type
     FRuns: array[0..1] of TCarRun; // each lane's run down the track
     FResultIdx: Integer;         // FResults entry of this run, -1 for none
     FRaceDone: Boolean;
+    FRunMode: TRunMode;          // Settings > Race > Mode
     FWinLane: Integer;           // -1 none yet, 0 / 1 the lane, 2 a tie
 
     // car screen
@@ -452,7 +456,9 @@ const
   SettingTabOf: array[TSetting] of TSettingTab = (
     tbTree, tbTree, tbTree, tbTree, tbTree,  // tree, speed, delay, lane, staging
     tbPedals, tbPedals, tbPedals,            // pedal input, trans, throttle
+    tbRace,                                  // run mode
     tbRace, tbRace, tbRace, tbRace, tbRace); // car, length, surface, units, handicap
+  RunModeNames: array[TRunMode] of string = ('Reaction time', 'Elapsed time');
 
 {$IFDEF MSWINDOWS}
 const
@@ -783,6 +789,7 @@ begin
   FCarPreset := 4; // V8 sedan
   FCar := Presets[FCarPreset];
   FRaceLength := rlQuarter;
+  FRunMode := rmElapsed;
   FSurface := sfPrepped;
   FImperial := False;
   FTreeSpeed := 0;
@@ -807,6 +814,8 @@ begin
       FPedalInput := TPedalInput(EnsureRange(Ini.ReadInteger('Options', 'PedalInput', 0),
         Ord(Low(TPedalInput)), Ord(High(TPedalInput))));
       FUserLane := EnsureRange(Ini.ReadInteger('Options', 'Lane', 0), 0, 1);
+      FRunMode := TRunMode(EnsureRange(Ini.ReadInteger('Options', 'RunMode',
+        Ord(rmElapsed)), Ord(Low(TRunMode)), Ord(High(TRunMode))));
       FRaceLength := TRaceLength(EnsureRange(Ini.ReadInteger('Options', 'Length',
         Ord(rlQuarter)), Ord(Low(TRaceLength)), Ord(High(TRaceLength))));
       FSurface := TSurface(EnsureRange(Ini.ReadInteger('Options', 'Surface', 0),
@@ -867,6 +876,7 @@ begin
       Ini.WriteInteger('Options', 'PedalInput', Ord(FPedalInput));
       Ini.WriteInteger('Options', 'Lane', FUserLane);
       Ini.WriteInteger('Options', 'Length', Ord(FRaceLength));
+      Ini.WriteInteger('Options', 'RunMode', Ord(FRunMode));
       Ini.WriteInteger('Options', 'Surface', Ord(FSurface));
       Ini.WriteBool('Options', 'Imperial', FImperial);
       Ini.WriteInteger('Car', 'Preset', FCarPreset);
@@ -1571,6 +1581,12 @@ begin
   FSettingButtons[stTrans].Enabled := AllPedals;
   FSettingButtons[stThrottle].Enabled := AllPedals;
 
+  FSettingButtons[stRunMode].Text := 'Mode: ' + RunModeNames[FRunMode];
+  // the car and the track only matter when the cars race to the line
+  FSettingButtons[stCar].Enabled := FRunMode = rmElapsed;
+  FSettingButtons[stLength].Enabled := FRunMode = rmElapsed;
+  FSettingButtons[stSurface].Enabled := FRunMode = rmElapsed;
+  FSettingButtons[stUnits].Enabled := FRunMode = rmElapsed;
   FSettingButtons[stCar].Text := 'Car: ' + CarTitle + '  >';
   FSettingButtons[stLength].Text := 'Race: ' + RaceLengthNames[FRaceLength];
   FSettingButtons[stSurface].Text := 'Track: ' + SurfaceNames[FSurface];
@@ -1617,6 +1633,8 @@ begin
         FCarPanel.BringToFront;
         Exit;
       end;
+    stRunMode:
+      if FRunMode = rmElapsed then FRunMode := rmReaction else FRunMode := rmElapsed;
     stLength:
       FRaceLength := TRaceLength((Ord(FRaceLength) + 1) mod (Ord(High(TRaceLength)) + 1));
     stSurface:
@@ -2451,6 +2469,21 @@ begin
         FPhase := tpGreen;
   end;
 
+  // Reaction time mode: the run is over once you have left and your green
+  // is due (a red light still sees the rest of the tree come down)
+  if (FRunMode = rmReaction) and FUserLaunched
+    and (T >= GreenDueMs(FUserLane)) then
+  begin
+    FRaceDone := True;
+    tmrTree.Enabled := False;
+    FRunning := False;
+    FPhase := tpGreen;
+    btnSettings.Enabled := True;
+    UpdateHint;
+    pbTree.Repaint;
+    Exit;
+  end;
+
   // the other lane leaves on its own green (with a handicap that can come
   // before yours), timed from when it was due to go rather than this tick
   if (FPhase in [tpCountdown, tpGreen]) and not FCars[Opp].Launched
@@ -2574,6 +2607,7 @@ begin
   R.Bogged := FBogged;
   // win or lose is decided at the finish line, see FinishRace
   R.Handicap := FHandicap;
+  R.RunMode := FRunMode;
 
   // A red light lights your red bulb; the tree carries on for the other lane
   if R.Foul then
@@ -2827,13 +2861,22 @@ begin
     lblStats.Text := Format('Runs %d   Best -.---   Avg -.---   Red %d',
       [FResults.Count, Fouls]);
 
-  // history: just the reaction time of each run, newest first
+  // history, newest first: the reaction time of each reaction time run,
+  // the elapsed time of each race (DNF if the car didn't finish)
   Lines := TStringBuilder.Create;
   try
     I := FResults.Count - 1;
     while (I >= 0) and (I >= FResults.Count - HistoryLines) do
     begin
-      Lines.Append(FormatSecs(FResults[I].ReactionMs));
+      R := FResults[I];
+      if R.RunMode = rmReaction then
+        Lines.Append(FormatSecs(R.ReactionMs))
+      else if R.Finished then
+        Lines.Append(Format('%.2f', [R.ET], TFormatSettings.Invariant))
+      else if (I = FResultIdx) and FRunning then
+        Lines.Append('-.--') // still on its way down the track
+      else
+        Lines.Append('DNF');
       Lines.Append(sLineBreak);
       Dec(I);
     end;

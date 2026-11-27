@@ -81,8 +81,10 @@ let the car go:
 | 0.100 and up| Late                          |
 
 When you red-light, your red bulb lights and the tree carries on for the
-other lane. History lists your reaction times, newest first (a red light is
-a time below zero). Your settings are saved between sessions.
+other lane. **Settings > Race > Mode** picks **Reaction time** (the run ends
+as soon as you launch; History lists your reaction times, a red light is a
+time below zero) or **Elapsed time** (the cars race to the line; History lists
+your elapsed times, DNF if you didn't finish). Your settings are saved between sessions.
 
 ## Cars and the race down the track (new in 2.0)
 
